@@ -1,29 +1,22 @@
 import streamlit as st
-import google.generativeai as genai
-from groq import Groq
+import os
 import urllib.parse
 import time
 import base64
-import os
+from groq import Groq
 
 # ==========================================
-# 1. DUAL HYBRID ENGINE SETUP
+# 1. ENGINE SETUP (STABLE GROQ ENGINE)
 # ==========================================
-if "GEMINI_API_KEY" in st.secrets:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    gemini_model = genai.GenerativeModel('gemini-1.5-flash')
-else:
-    st.error("🚨 Gemini API Key missing in Secrets!")
-
 if "GROQ_API_KEY" in st.secrets:
-    groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 else:
-    st.error("🚨 Groq API Key missing in Secrets!")
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 st.set_page_config(page_title="HEXALOY AI", page_icon="💠", layout="wide", initial_sidebar_state="expanded")
 
 # ==========================================
-# 2. PROFESSIONAL LIGHT MODE UI
+# 2. PROFESSIONAL LIGHT MODE CSS
 # ==========================================
 st.markdown("""
     <style>
@@ -50,8 +43,11 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+def encode_image(uploaded_file):
+    return base64.b64encode(uploaded_file.getvalue()).decode('utf-8')
+
 # ==========================================
-# 3. SIDEBAR WITH CUSTOM LOGO BRANDING
+# 3. SIDEBAR WITH CUSTOM HEXALOY LOGO
 # ==========================================
 if "sessions" not in st.session_state:
     st.session_state.sessions = {"New Session": []}
@@ -59,7 +55,7 @@ if "current_chat" not in st.session_state:
     st.session_state.current_chat = "New Session"
 
 with st.sidebar:
-    # Read logo and perfectly align with matching Blue Hexaloy text
+    # Perfect Alignment for Logo & Text
     try:
         with open("logo.png", "rb") as image_file:
             logo_base64 = base64.b64encode(image_file.read()).decode()
@@ -88,6 +84,9 @@ with st.sidebar:
         if st.button(f"💬 {chat_name}", key=f"btn_{chat_name}"):
             st.session_state.current_chat = chat_name
             st.rerun()
+            
+    st.markdown("---")
+    uploaded_image = st.file_uploader("📸 Image Analysis (Optional)", type=['png', 'jpg', 'jpeg'])
 
     st.markdown("""
         <div class="signature-box">
@@ -98,10 +97,10 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. MAIN CHAT & EXECUTION LOGIC
+# 4. MAIN CHAT & STREAMING LOGIC
 # ==========================================
 st.markdown("<h1 style='color: #0F172A; font-weight: 800; text-align: center; font-size: 2.5rem;'>HEXALOY INTELLIGENCE</h1>", unsafe_allow_html=True)
-st.markdown("<div style='text-align: center; color: #64748B; font-weight: 500; margin-bottom: 30px; margin-top: -10px;'>Powered by Dual AI Engines</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; color: #64748B; font-weight: 500; margin-bottom: 30px; margin-top: -10px;'>Your Professional AI Assistant</div>", unsafe_allow_html=True)
 
 for message in st.session_state.sessions[st.session_state.current_chat]:
     avatar_icon = "🧑‍🎓" if message["role"] == "user" else "💠"
@@ -117,11 +116,13 @@ if prompt := st.chat_input("Ask Hexaloy anything..."):
         st.session_state.current_chat = new_name
 
     st.session_state.sessions[st.session_state.current_chat].append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar="🧑‍🎓"): st.markdown(prompt)
+    
+    with st.chat_message("user", avatar="🧑‍🎓"): 
+        st.markdown(prompt)
 
     with st.chat_message("assistant", avatar="💠"):
         if any(word in prompt.lower() for word in ["draw", "pic", "image", "photo bana"]):
-            with st.spinner("Rendering visualization..."):
+            with st.spinner("Generating visualization..."):
                 time.sleep(1.5)
                 safe_prompt = urllib.parse.quote(prompt)
                 img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=800&height=400&nologo=true"
@@ -130,31 +131,45 @@ if prompt := st.chat_input("Ask Hexaloy anything..."):
         else:
             instructions = """
             You are 'HEXALOY', an exceptionally intelligent and professional AI assistant.
-            1. You possess universal knowledge. You can answer ANY question perfectly.
-            2. Keep your tone professional, highly accurate, and helpful. 
+            1. You possess universal knowledge. You can answer ANY question about coding, science, history, daily life, or business perfectly.
+            2. Keep your tone professional, highly accurate, and helpful. Use clear formatting.
             3. YOU ARE AN AI. Do not claim to be human.
             4. IF AND ONLY IF asked about your creator, owner, or who made you, reply exactly with: "I was architected and developed by VINIT MAAN."
             """
             
             try:
-                # Primary Engine: Google Gemini 1.5 Flash (Streaming)
-                response = gemini_model.generate_content(f"{instructions}\n\nUser: {prompt}", stream=True)
-                
-                def stream_gemini():
-                    for chunk in response:
-                        yield chunk.text
-                        time.sleep(0.02)
-                
-                full_res = st.write_stream(stream_gemini())
-                st.session_state.sessions[st.session_state.current_chat].append({"role": "assistant", "content": full_res})
+                def generate_response():
+                    if uploaded_image:
+                        base64_image = encode_image(uploaded_image)
+                        stream = client.chat.completions.create(
+                            messages=[
+                                {"role": "system", "content": instructions},
+                                {"role": "user", "content": [
+                                    {"type": "text", "text": prompt},
+                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                                ]}
+                            ],
+                            model="llama-3.2-11b-vision-preview",
+                            temperature=0.7,
+                            stream=True
+                        )
+                    else:
+                        stream = client.chat.completions.create(
+                            messages=[
+                                {"role": "system", "content": instructions},
+                                {"role": "user", "content": prompt}
+                            ],
+                            model="llama-3.3-70b-versatile",
+                            temperature=0.7,
+                            stream=True
+                        )
+                    
+                    for chunk in stream:
+                        if chunk.choices[0].delta.content is not None:
+                            yield chunk.choices[0].delta.content
+
+                response_text = st.write_stream(generate_response())
+                st.session_state.sessions[st.session_state.current_chat].append({"role": "assistant", "content": response_text})
                 
             except Exception as e:
-                # Fallback Engine: Groq Llama 3.3
-                st.warning("⚠️ Hexaloy Primary Core busy. Switching to Fallback Engine...")
-                chat_completion = groq_client.chat.completions.create(
-                    messages=[{"role": "system", "content": instructions}, {"role": "user", "content": prompt}],
-                    model="llama-3.3-70b-versatile"
-                )
-                full_res = chat_completion.choices[0].message.content
-                st.markdown(full_res)
-                st.session_state.sessions[st.session_state.current_chat].append({"role": "assistant", "content": full_res})
+                st.error(f"System Fault: {str(e)}")
