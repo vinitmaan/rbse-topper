@@ -1,3 +1,4 @@
-streamlit
-groq
-watchdog
+streamlit>=1.32.0
+groq>=0.5.0
+requests>=2.31.0
+Pillow>=10.0.0
