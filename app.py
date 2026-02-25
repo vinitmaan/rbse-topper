@@ -91,7 +91,7 @@ with st.sidebar:
 # 5. CHAT EXECUTION
 # ==========================================
 for message in st.session_state.sessions[st.session_state.current_chat]:
-    avatar_icon = "🧑‍💻" if message["role"] == "user" else "logo.png"
+    avatar_icon = "💠" if message["role"] == "user" else "logo.png"
     with st.chat_message(message["role"], avatar=avatar_icon):
         st.markdown(message["content"])
 
@@ -105,7 +105,7 @@ if prompt := st.chat_input("Message Hexaloy..."):
 
     st.session_state.sessions[st.session_state.current_chat].append({"role": "user", "content": prompt})
     
-    with st.chat_message("user", avatar="🧑‍💻"): 
+    with st.chat_message("user", avatar="💠"): 
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar="logo.png"):
@@ -160,3 +160,4 @@ if prompt := st.chat_input("Message Hexaloy..."):
                 
             except Exception as e:
                 st.error(f"System Error: {str(e)}")
+
