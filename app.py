@@ -25,7 +25,7 @@ st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
     html, body, [class*="css"] { font-family: 'Inter', sans-serif; background-color: #FFFFFF; color: #1E293B; }
-    #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
+    #MainMenu {visibility: hidden;} footer {visibility: hidden;}
     
     /* Clean Input Bar */
     .stChatInputContainer { border-radius: 8px !important; border: 1px solid #E2E8F0 !important; background-color: #FFFFFF !important; box-shadow: 0 2px 6px rgba(0,0,0,0.05) !important; padding-bottom: 20px !important;}
@@ -162,3 +162,4 @@ if prompt := st.chat_input("Message Hexaloy..."):
                 
             except Exception as e:
                 st.error(f"System Error: {str(e)}")
+
