@@ -3,18 +3,18 @@ import os
 import urllib.parse
 import time
 import base64
-from groq import Groq
+import random
+import google.generativeai as genai
+import PIL.Image
 
 # ==========================================
-# 1. ENGINE SETUP (STABLE GROQ ENGINE & SECURE)
+# 1. PAGE CONFIG & SECRETS VALIDATION
 # ==========================================
-if "GROQ_API_KEY" in st.secrets:
-    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-else:
-    st.error("🚨 System Error: Groq API Key is missing in Streamlit Secrets!")
-    st.stop()
-
 st.set_page_config(page_title="HEXALOY AI", page_icon="logo.png", layout="wide", initial_sidebar_state="expanded")
+
+if "GEMINI_KEYS" not in st.secrets:
+    st.error("🚨 System Error: GEMINI_KEYS array is missing in Streamlit Secrets!")
+    st.stop()
 
 # ==========================================
 # 2. PROFESSIONAL LIGHT MODE CSS
@@ -44,9 +44,6 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-def encode_image(uploaded_file):
-    return base64.b64encode(uploaded_file.getvalue()).decode('utf-8')
-
 # ==========================================
 # 3. SIDEBAR WITH CUSTOM HEXALOY LOGO
 # ==========================================
@@ -56,7 +53,6 @@ if "current_chat" not in st.session_state:
     st.session_state.current_chat = "New Session"
 
 with st.sidebar:
-    # Perfect Alignment for Logo & Text
     try:
         with open("logo.png", "rb") as image_file:
             logo_base64 = base64.b64encode(image_file.read()).decode()
@@ -140,34 +136,36 @@ if prompt := st.chat_input("Ask Hexaloy anything..."):
             
             try:
                 def generate_response():
-                    if uploaded_image:
-                        base64_image = encode_image(uploaded_image)
-                        stream = client.chat.completions.create(
-                            messages=[
-                                {"role": "system", "content": instructions},
-                                {"role": "user", "content": [
-                                    {"type": "text", "text": prompt},
-                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                                ]}
-                            ],
-                            model="llama-3.2-11b-vision-preview",
-                            temperature=0.7,
-                            stream=True
-                        )
-                    else:
-                        stream = client.chat.completions.create(
-                            messages=[
-                                {"role": "system", "content": instructions},
-                                {"role": "user", "content": prompt}
-                            ],
-                            model="llama-3.3-70b-versatile",
-                            temperature=0.7,
-                            stream=True
-                        )
+                    # API Key Rotation Logic (Picks 1 random key from the 4 provided)
+                    keys = st.secrets["GEMINI_KEYS"]
+                    selected_key = random.choice(keys)
+                    genai.configure(api_key=selected_key)
                     
-                    for chunk in stream:
-                        if chunk.choices[0].delta.content is not None:
-                            yield chunk.choices[0].delta.content
+                    model = genai.GenerativeModel(
+                        model_name="gemini-1.5-flash",
+                        system_instruction=instructions
+                    )
+                    
+                    # Convert Streamlit history to Gemini format
+                    gemini_history = []
+                    for m in st.session_state.sessions[st.session_state.current_chat][:-1]: # Exclude current prompt
+                        role = "user" if m["role"] == "user" else "model"
+                        if "![Generated Image]" not in m["content"]: # Skip image tags to avoid history crash
+                            gemini_history.append({"role": role, "parts": [m["content"]]})
+                    
+                    chat = model.start_chat(history=gemini_history)
+                    
+                    # Build current message parts
+                    message_parts = [prompt]
+                    if uploaded_image:
+                        img = PIL.Image.open(uploaded_image)
+                        message_parts.append(img)
+                        
+                    response = chat.send_message(message_parts, stream=True)
+                    
+                    for chunk in response:
+                        if chunk.text:
+                            yield chunk.text
 
                 response_text = st.write_stream(generate_response())
                 st.session_state.sessions[st.session_state.current_chat].append({"role": "assistant", "content": response_text})
