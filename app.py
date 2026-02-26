@@ -142,7 +142,7 @@ if prompt := st.chat_input("Ask Hexaloy anything..."):
                     genai.configure(api_key=selected_key)
                     
                     model = genai.GenerativeModel(
-                        model_name="gemini-1.5-flash-latest",
+                        model_name="gemini-2.5-flash",
                         system_instruction=instructions
                     )
                     
@@ -172,3 +172,4 @@ if prompt := st.chat_input("Ask Hexaloy anything..."):
                 
             except Exception as e:
                 st.error(f"System Fault: {str(e)}")
+
