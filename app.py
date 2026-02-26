@@ -71,7 +71,7 @@ with st.sidebar:
         st.markdown("<h3 style='color: #1A56A8; font-weight: 800; text-align: center;'>logo.png HEXALOY</h3>", unsafe_allow_html=True)
 
     st.markdown("<div class='new-chat-btn'>", unsafe_allow_html=True)
-    if st.button("newchat.png New Session"):
+    if st.button(""newchat.png" New Session"):
         chat_id = f"Session {len(st.session_state.sessions) + 1}"
         st.session_state.sessions[chat_id] = []
         st.session_state.current_chat = chat_id
@@ -172,4 +172,5 @@ if prompt := st.chat_input("Ask Hexaloy anything..."):
                 
             except Exception as e:
                 st.error(f"System Fault: {str(e)}")
+
 
