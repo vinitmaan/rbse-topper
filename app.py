@@ -1,19 +1,18 @@
 import streamlit as st
-import os
 import urllib.parse
 import time
 import base64
-from openai import OpenAI
+from groq import Groq
 
 # ==========================================
 # 1. PAGE CONFIG & SECRETS VALIDATION
 # ==========================================
 st.set_page_config(page_title="HEXALOY AI", page_icon="💠", layout="wide", initial_sidebar_state="expanded")
 
-if "OPENAI_API_KEY" in st.secrets:
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+if "GROQ_API_KEY" in st.secrets:
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 else:
-    st.error("🚨 System Error: OPENAI_API_KEY is missing in Streamlit Secrets!")
+    st.error("🚨 System Error: GROQ_API_KEY is missing in Streamlit Secrets!")
     st.stop()
 
 # ==========================================
@@ -139,32 +138,30 @@ if prompt := st.chat_input("Ask Hexaloy anything..."):
             
             try:
                 def generate_response():
-                    # Format history for OpenAI
-                    messages = [{"role": "system", "content": instructions}]
-                    for m in st.session_state.sessions[st.session_state.current_chat][:-1]:
-                        if "![Generated Image]" not in m["content"]: # Skip images in history
-                            messages.append({"role": m["role"], "content": m["content"]})
-                    
-                    # Handle vision vs text
                     if uploaded_image:
                         base64_image = encode_image(uploaded_image)
-                        messages.append({
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": prompt},
-                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                            ]
-                        })
+                        stream = client.chat.completions.create(
+                            messages=[
+                                {"role": "system", "content": instructions},
+                                {"role": "user", "content": [
+                                    {"type": "text", "text": prompt},
+                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                                ]}
+                            ],
+                            model="llama-3.2-11b-vision-preview",
+                            temperature=0.7,
+                            stream=True
+                        )
                     else:
-                        messages.append({"role": "user", "content": prompt})
-
-                    # Call OpenAI GPT-4o-mini
-                    stream = client.chat.completions.create(
-                        model="gpt-4o-mini",
-                        messages=messages,
-                        temperature=0.7,
-                        stream=True
-                    )
+                        stream = client.chat.completions.create(
+                            messages=[
+                                {"role": "system", "content": instructions},
+                                {"role": "user", "content": prompt}
+                            ],
+                            model="llama-3.3-70b-versatile",
+                            temperature=0.7,
+                            stream=True
+                        )
                     
                     for chunk in stream:
                         if chunk.choices[0].delta.content is not None:
