@@ -7,7 +7,7 @@ from groq import Groq
 # ==========================================
 # 1. PAGE CONFIG & SECRETS VALIDATION
 # ==========================================
-st.set_page_config(page_title="HEXALOY AI", page_icon="💠", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="HEXALOY AI", page_icon="logo.png", layout="wide", initial_sidebar_state="expanded")
 
 if "GROQ_API_KEY" in st.secrets:
     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
@@ -68,10 +68,10 @@ with st.sidebar:
         st.markdown(logo_html, unsafe_allow_html=True)
     except FileNotFoundError:
         st.warning("⚠️ logo.png not found. Upload it to GitHub!")
-        st.markdown("<h3 style='color: #1A56A8; font-weight: 800; text-align: center;'>💠 HEXALOY</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='color: #1A56A8; font-weight: 800; text-align: center;'>logo.png HEXALOY</h3>", unsafe_allow_html=True)
 
     st.markdown("<div class='new-chat-btn'>", unsafe_allow_html=True)
-    if st.button("➕ New Session"):
+    if st.button("newchat.png New Session"):
         chat_id = f"Session {len(st.session_state.sessions) + 1}"
         st.session_state.sessions[chat_id] = []
         st.session_state.current_chat = chat_id
@@ -102,7 +102,7 @@ st.markdown("<h1 style='color: #0F172A; font-weight: 800; text-align: center; fo
 st.markdown("<div style='text-align: center; color: #64748B; font-weight: 500; margin-bottom: 30px; margin-top: -10px;'>Your Professional AI Assistant</div>", unsafe_allow_html=True)
 
 for message in st.session_state.sessions[st.session_state.current_chat]:
-    avatar_icon = "🧑‍🎓" if message["role"] == "user" else "💠"
+    avatar_icon = "user.png" if message["role"] == "user" else "logo.png"
     with st.chat_message(message["role"], avatar=avatar_icon):
         st.markdown(message["content"])
 
@@ -116,10 +116,10 @@ if prompt := st.chat_input("Ask Hexaloy anything..."):
 
     st.session_state.sessions[st.session_state.current_chat].append({"role": "user", "content": prompt})
     
-    with st.chat_message("user", avatar="🧑‍🎓"): 
+    with st.chat_message("user", avatar="user.png"): 
         st.markdown(prompt)
 
-    with st.chat_message("assistant", avatar="💠"):
+    with st.chat_message("assistant", avatar="logo.png"):
         if any(word in prompt.lower() for word in ["draw", "pic", "image", "photo bana"]):
             with st.spinner("Generating visualization..."):
                 time.sleep(1.5)
@@ -172,3 +172,4 @@ if prompt := st.chat_input("Ask Hexaloy anything..."):
                 
             except Exception as e:
                 st.error(f"System Fault: {str(e)}")
+
