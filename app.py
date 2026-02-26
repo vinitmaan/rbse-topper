@@ -3,17 +3,17 @@ import os
 import urllib.parse
 import time
 import base64
-import random
-import google.generativeai as genai
-import PIL.Image
+from openai import OpenAI
 
 # ==========================================
 # 1. PAGE CONFIG & SECRETS VALIDATION
 # ==========================================
 st.set_page_config(page_title="HEXALOY AI", page_icon="💠", layout="wide", initial_sidebar_state="expanded")
 
-if "GEMINI_KEYS" not in st.secrets:
-    st.error("🚨 System Error: GEMINI_KEYS array is missing in Streamlit Secrets!")
+if "OPENAI_API_KEY" in st.secrets:
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+else:
+    st.error("🚨 System Error: OPENAI_API_KEY is missing in Streamlit Secrets!")
     st.stop()
 
 # ==========================================
@@ -43,6 +43,9 @@ st.markdown("""
     .signature-box h3 { margin: 5px 0 0 0; font-size: 1.1rem; color: #0F172A; font-weight: 700; }
     </style>
     """, unsafe_allow_html=True)
+
+def encode_image(uploaded_file):
+    return base64.b64encode(uploaded_file.getvalue()).decode('utf-8')
 
 # ==========================================
 # 3. SIDEBAR WITH CUSTOM HEXALOY LOGO
@@ -136,40 +139,39 @@ if prompt := st.chat_input("Ask Hexaloy anything..."):
             
             try:
                 def generate_response():
-                    # API Key Rotation Logic
-                    keys = st.secrets["GEMINI_KEYS"]
-                    selected_key = random.choice(keys)
-                    genai.configure(api_key=selected_key)
+                    # Format history for OpenAI
+                    messages = [{"role": "system", "content": instructions}]
+                    for m in st.session_state.sessions[st.session_state.current_chat][:-1]:
+                        if "![Generated Image]" not in m["content"]: # Skip images in history
+                            messages.append({"role": m["role"], "content": m["content"]})
                     
-                    model = genai.GenerativeModel(
-                        model_name="gemini-2.5-flash",
-                        system_instruction=instructions
+                    # Handle vision vs text
+                    if uploaded_image:
+                        base64_image = encode_image(uploaded_image)
+                        messages.append({
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": prompt},
+                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                            ]
+                        })
+                    else:
+                        messages.append({"role": "user", "content": prompt})
+
+                    # Call OpenAI GPT-4o-mini
+                    stream = client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=messages,
+                        temperature=0.7,
+                        stream=True
                     )
                     
-                    # Convert Streamlit history to Gemini format
-                    gemini_history = []
-                    for m in st.session_state.sessions[st.session_state.current_chat][:-1]: 
-                        role = "user" if m["role"] == "user" else "model"
-                        if "![Generated Image]" not in m["content"]: 
-                            gemini_history.append({"role": role, "parts": [m["content"]]})
-                    
-                    chat = model.start_chat(history=gemini_history)
-                    
-                    # Build current message parts
-                    message_parts = [prompt]
-                    if uploaded_image:
-                        img = PIL.Image.open(uploaded_image)
-                        message_parts.append(img)
-                        
-                    response = chat.send_message(message_parts, stream=True)
-                    
-                    for chunk in response:
-                        if chunk.text:
-                            yield chunk.text
+                    for chunk in stream:
+                        if chunk.choices[0].delta.content is not None:
+                            yield chunk.choices[0].delta.content
 
                 response_text = st.write_stream(generate_response())
                 st.session_state.sessions[st.session_state.current_chat].append({"role": "assistant", "content": response_text})
                 
             except Exception as e:
                 st.error(f"System Fault: {str(e)}")
-
