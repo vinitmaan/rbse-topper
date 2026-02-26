@@ -10,7 +10,7 @@ import PIL.Image
 # ==========================================
 # 1. PAGE CONFIG & SECRETS VALIDATION
 # ==========================================
-st.set_page_config(page_title="HEXALOY AI", page_icon="logo.png", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="HEXALOY AI", page_icon="💠", layout="wide", initial_sidebar_state="expanded")
 
 if "GEMINI_KEYS" not in st.secrets:
     st.error("🚨 System Error: GEMINI_KEYS array is missing in Streamlit Secrets!")
@@ -66,7 +66,7 @@ with st.sidebar:
         st.markdown(logo_html, unsafe_allow_html=True)
     except FileNotFoundError:
         st.warning("⚠️ logo.png not found. Upload it to GitHub!")
-        st.markdown("<h3 style='color: #1A56A8; font-weight: 800; text-align: center;'>logo.png HEXALOY</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='color: #1A56A8; font-weight: 800; text-align: center;'>💠 HEXALOY</h3>", unsafe_allow_html=True)
 
     st.markdown("<div class='new-chat-btn'>", unsafe_allow_html=True)
     if st.button("➕ New Session"):
@@ -100,7 +100,7 @@ st.markdown("<h1 style='color: #0F172A; font-weight: 800; text-align: center; fo
 st.markdown("<div style='text-align: center; color: #64748B; font-weight: 500; margin-bottom: 30px; margin-top: -10px;'>Your Professional AI Assistant</div>", unsafe_allow_html=True)
 
 for message in st.session_state.sessions[st.session_state.current_chat]:
-    avatar_icon = "💠" if message["role"] == "user" else "logo.png"
+    avatar_icon = "🧑‍🎓" if message["role"] == "user" else "💠"
     with st.chat_message(message["role"], avatar=avatar_icon):
         st.markdown(message["content"])
 
@@ -114,10 +114,10 @@ if prompt := st.chat_input("Ask Hexaloy anything..."):
 
     st.session_state.sessions[st.session_state.current_chat].append({"role": "user", "content": prompt})
     
-    with st.chat_message("user", avatar="💠"): 
+    with st.chat_message("user", avatar="🧑‍🎓"): 
         st.markdown(prompt)
 
-    with st.chat_message("assistant", avatar="logo.png"):
+    with st.chat_message("assistant", avatar="💠"):
         if any(word in prompt.lower() for word in ["draw", "pic", "image", "photo bana"]):
             with st.spinner("Generating visualization..."):
                 time.sleep(1.5)
@@ -136,21 +136,21 @@ if prompt := st.chat_input("Ask Hexaloy anything..."):
             
             try:
                 def generate_response():
-                    # API Key Rotation Logic (Picks 1 random key from the 4 provided)
+                    # API Key Rotation Logic
                     keys = st.secrets["GEMINI_KEYS"]
                     selected_key = random.choice(keys)
                     genai.configure(api_key=selected_key)
                     
                     model = genai.GenerativeModel(
-                        model_name="gemini-1.5-flash",
+                        model_name="gemini-1.5-flash-latest",
                         system_instruction=instructions
                     )
                     
                     # Convert Streamlit history to Gemini format
                     gemini_history = []
-                    for m in st.session_state.sessions[st.session_state.current_chat][:-1]: # Exclude current prompt
+                    for m in st.session_state.sessions[st.session_state.current_chat][:-1]: 
                         role = "user" if m["role"] == "user" else "model"
-                        if "![Generated Image]" not in m["content"]: # Skip image tags to avoid history crash
+                        if "![Generated Image]" not in m["content"]: 
                             gemini_history.append({"role": role, "parts": [m["content"]]})
                     
                     chat = model.start_chat(history=gemini_history)
