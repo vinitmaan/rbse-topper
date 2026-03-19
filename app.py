@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import urllib.parse
 import time
 import base64
@@ -13,33 +14,20 @@ st.set_page_config(page_title="HEXALOY AI", page_icon="logo.png", layout="wide",
 if "GROQ_API_KEY" in st.secrets:
     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 else:
-    st.error("🚨 System Error: GROQ_API_KEY is missing in Streamlit Secrets!")
+    st.error("🚨 System Error: GROQ_API_KEY is missing!")
     st.stop()
 
 # ==========================================
-# 2. PROFESSIONAL LIGHT MODE CSS
+# 2. CSS & STYLING
 # ==========================================
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     html, body, [class*="css"] { font-family: 'Inter', sans-serif; background-color: #F8F9FA; color: #1E293B; }
     #MainMenu {visibility: hidden;} footer {visibility: hidden;}
-    
-    .stChatInputContainer { border-radius: 12px !important; border: 1px solid #CBD5E1 !important; background-color: #FFFFFF !important; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
-    
-    div[data-testid="stChatMessage"] { border-radius: 12px; padding: 15px 20px; margin-bottom: 20px; }
-    div[data-testid="stChatMessage"]:nth-child(odd) { background-color: #F1F5F9 !important; border: 1px solid #E2E8F0 !important; color: #0F172A; }
-    div[data-testid="stChatMessage"]:nth-child(even) { background-color: #FFFFFF !important; border: 1px solid #E2E8F0 !important; box-shadow: 0 2px 4px rgba(0,0,0,0.02); color: #0F172A; }
-
-    section[data-testid="stSidebar"] { background-color: #FFFFFF; border-right: 1px solid #E2E8F0; }
-    .stButton>button { width: 100%; text-align: left; background-color: transparent; border: 1px solid transparent; padding: 10px 15px; border-radius: 8px; font-weight: 500; color: #475569; transition: 0.2s; }
-    .stButton>button:hover { background-color: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1; }
-    
-    .new-chat-btn>div>button { background-color: #1A56A8; color: white; justify-content: center; font-weight: 600; margin-bottom: 20px; border-radius: 8px; }
-    .new-chat-btn>div>button:hover { background-color: #134282; color: white; }
-
-    .signature-box { margin-top: 40px; margin-bottom: 20px; padding: 15px; border-radius: 8px; background: #F8F9FA; border: 1px solid #E2E8F0; text-align: center; }
-    .signature-box p { margin: 0; font-size: 0.75rem; color: #64748B; text-transform: uppercase; letter-spacing: 1px; }
+    .stChatInputContainer { border-radius: 12px !important; border: 1px solid #CBD5E1 !important; }
+    .signature-box { margin-top: 40px; padding: 15px; border-radius: 8px; background: #F8F9FA; border: 1px solid #E2E8F0; text-align: center; }
+    .signature-box p { margin: 0; font-size: 0.75rem; color: #64748B; text-transform: uppercase; }
     .signature-box h3 { margin: 5px 0 0 0; font-size: 1.1rem; color: #0F172A; font-weight: 700; }
     </style>
     """, unsafe_allow_html=True)
@@ -48,7 +36,7 @@ def encode_image(uploaded_file):
     return base64.b64encode(uploaded_file.getvalue()).decode('utf-8')
 
 # ==========================================
-# 3. SIDEBAR WITH CUSTOM HEXALOY LOGO
+# 3. SIDEBAR LOGIC
 # ==========================================
 if "sessions" not in st.session_state:
     st.session_state.sessions = {"New Session": []}
@@ -56,210 +44,97 @@ if "current_chat" not in st.session_state:
     st.session_state.current_chat = "New Session"
 
 with st.sidebar:
+    # Logo Section
     try:
         with open("logo.png", "rb") as image_file:
             logo_base64 = base64.b64encode(image_file.read()).decode()
-        
-        logo_html = f"""
-        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 25px; padding-top: 10px;">
-            <img src="data:image/png;base64,{logo_base64}" style="width: 50px; margin-right: 12px;">
-            <span style="font-family: 'Inter', sans-serif; font-size: 2.2rem; font-weight: 800; color: #2B5B9E; letter-spacing: 1.5px;">HEXALOY</span>
-        </div>
-        """
-        st.markdown(logo_html, unsafe_allow_html=True)
-    except FileNotFoundError:
-        st.warning("⚠️ logo.png not found. Upload it to GitHub!")
-        st.markdown("<h3 style='color: #1A56A8; font-weight: 800; text-align: center;'>logo.png HEXALOY</h3>", unsafe_allow_html=True)
+        st.markdown(f"""
+            <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 25px;">
+                <img src="data:image/png;base64,{logo_base64}" style="width: 50px; margin-right: 12px;">
+                <span style="font-size: 2.2rem; font-weight: 800; color: #2B5B9E;">HEXALOY</span>
+            </div>
+            """, unsafe_allow_html=True)
+    except:
+        st.markdown("<h2 style='text-align:center;'>HEXALOY</h2>", unsafe_allow_html=True)
 
-    st.markdown("<div class='new-chat-btn'>", unsafe_allow_html=True)
     if st.button("➕ New Session"):
         chat_id = f"Session {len(st.session_state.sessions) + 1}"
         st.session_state.sessions[chat_id] = []
         st.session_state.current_chat = chat_id
         st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("<p style='color: #64748B; font-size: 0.8rem; font-weight: 600; margin-top: 10px;'>Chat History</p>", unsafe_allow_html=True)
-    for chat_name in reversed(list(st.session_state.sessions.keys())):
-        if st.button(f"💬 {chat_name}", key=f"btn_{chat_name}"):
-            st.session_state.current_chat = chat_name
-            st.rerun()
-            
     st.markdown("---")
-    uploaded_image = st.file_uploader("📸 Image Analysis (Optional)", type=['png', 'jpg', 'jpeg'])
+    uploaded_image = st.file_uploader("📸 Image Analysis", type=['png', 'jpg', 'jpeg'])
 
     st.markdown("""
         <div class="signature-box">
             <p>Architected by</p>
             <h3>VINIT MAAN</h3>
-            <p style="font-size: 0.6rem; margin-top: 5px;">Enterprise AI v6.0</p>
         </div>
     """, unsafe_allow_html=True)
 
-    # ==========================================
-    # AVIKA VOICE AI - SIDEBAR BUTTON (WITH MIC ACCESS)
-    # ==========================================
-    st.markdown("---")
-    st.markdown("<p style='text-align: center; color: #1A56A8; font-weight: 800; font-size: 1.1rem; margin-bottom: 5px;'>📞 TALK TO AVIKA</p>", unsafe_allow_html=True)
-    
-    if "VAPI_PUBLIC_KEY" in st.secrets and "VAPI_ASSISTANT_ID" in st.secrets:
-        vapi_public_key = st.secrets["VAPI_PUBLIC_KEY"]
-        vapi_assistant_id = st.secrets["VAPI_ASSISTANT_ID"]
-
-        button_html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {{ margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Inter', sans-serif; background: transparent; }}
-                button {{
-                    background-color: #1A56A8; color: white; border: none; padding: 12px 20px;
-                    border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer;
-                    width: 90%; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.3s;
-                    display: flex; justify-content: center; align-items: center; gap: 8px;
-                }}
-                button:hover {{ background-color: #134282; }}
-                #status {{ font-size: 0.75rem; color: #64748B; margin-top: 8px; text-align: center; font-weight: 600; }}
-            </style>
-        </head>
-        <body>
-            <button id="vapi-btn">🎙️ Start Call</button>
-            <div id="status">Hexaloy Voice Assistant</div>
-
-            <script>
-                const script = document.createElement('script');
-                script.src = "https://cdn.jsdelivr.net/npm/@vapi-ai/web@latest/dist/vapi.bundle.js";
-                script.defer = true;
-                document.head.appendChild(script);
-
-                script.onload = () => {{
-                    const vapi = new window.Vapi("{vapi_public_key}");
-                    const btn = document.getElementById("vapi-btn");
-                    const status = document.getElementById("status");
-                    let isActive = false;
-
-                    btn.addEventListener("click", () => {{
-                        if (!isActive) {{
-                            vapi.start("{vapi_assistant_id}");
-                            btn.innerHTML = "🛑 End Call";
-                            btn.style.backgroundColor = "#DC2626";
-                            status.innerHTML = "Connecting to Avika...";
-                            isActive = true;
-                        }} else {{
-                            vapi.stop();
-                            btn.innerHTML = "🎙️ Start Call";
-                            btn.style.backgroundColor = "#1A56A8";
-                            status.innerHTML = "Call Ended";
-                            isActive = false;
-                        }}
-                    }});
-
-                    vapi.on('call-start', () => {{ 
-                        status.innerHTML = "🟢 Avika is listening..."; 
-                        status.style.color = "#10B981"; 
-                    }});
-                    
-                    vapi.on('call-end', () => {{
-                        btn.innerHTML = "🎙️ Start Call";
-                        btn.style.backgroundColor = "#1A56A8";
-                        status.innerHTML = "Hexaloy Voice Assistant";
-                        status.style.color = "#64748B";
-                        isActive = false;
-                    }});
-                }};
-            </script>
-        </body>
-        </html>
-        """
-        
-        # HTML encode kiya taaki string toot na jaye
-        escaped_html = html.escape(button_html)
-        
-        # Iframe inject kiya with allow="microphone"
-        iframe_code = f"""
-        <iframe srcdoc="{escaped_html}" 
-                style="width: 100%; height: 110px; border: none; overflow: hidden; background: transparent;" 
-                allow="microphone">
-        </iframe>
-        """
-        st.markdown(iframe_code, unsafe_allow_html=True)
-    else:
-        st.error("⚠️ Vapi Secrets missing in App Settings!")
-
 # ==========================================
-# 4. MAIN CHAT & STREAMING LOGIC
+# 4. MAIN CHAT & AVIKA VOICE WIDGET (THE FIX)
 # ==========================================
-st.markdown("<h1 style='color: #0F172A; font-weight: 800; text-align: center; font-size: 2.5rem;'>HEXALOY INTELLIGENCE</h1>", unsafe_allow_html=True)
-st.markdown("<div style='text-align: center; color: #64748B; font-weight: 500; margin-bottom: 30px; margin-top: -10px;'>Your Professional AI Assistant</div>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>HEXALOY INTELLIGENCE</h1>", unsafe_allow_html=True)
 
+# --- AVIKA VOICE WIDGET (BOTTOM-RIGHT FLOATING ICON) ---
+if "VAPI_PUBLIC_KEY" in st.secrets and "VAPI_ASSISTANT_ID" in st.secrets:
+    vapi_key = st.secrets["VAPI_PUBLIC_KEY"]
+    vapi_id = st.secrets["VAPI_ASSISTANT_ID"]
+
+    # Ye code widget ko right side mein floating banayega aur mic allow karega
+    vapi_widget_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <body>
+        <script src="https://cdn.jsdelivr.net/gh/VapiAI/html-widget@latest/dist/vapi-widget.js" defer></script>
+        <script>
+            window.addEventListener('load', function() {{
+                window.vapiSDK.run({{
+                    apiKey: "{vapi_key}",
+                    assistantId: "{vapi_id}",
+                    config: {{ position: "bottom-right", color: "#DC2626" }}
+                }});
+            }});
+        </script>
+    </body>
+    </html>
+    """
+    # Invisible iframe to bypass Streamlit restrictions
+    st.components.v1.html(vapi_widget_html, height=0)
+    st.markdown(f'<iframe srcdoc="{html.escape(vapi_widget_html)}" allow="microphone" style="display:none;"></iframe>', unsafe_allow_html=True)
+
+# Chat History Display
 for message in st.session_state.sessions[st.session_state.current_chat]:
-    avatar_icon = "user.png" if message["role"] == "user" else "logo.png"
-    with st.chat_message(message["role"], avatar=avatar_icon):
+    with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-if prompt := st.chat_input("Ask Hexaloy anything..."):
-    
-    curr_chat = st.session_state.current_chat
-    if curr_chat.startswith("New Session") and len(st.session_state.sessions[curr_chat]) == 0:
-        new_name = prompt[:20] + "..."
-        st.session_state.sessions[new_name] = st.session_state.sessions.pop(curr_chat)
-        st.session_state.current_chat = new_name
-
+# User Input
+if prompt := st.chat_input("Ask Hexaloy..."):
     st.session_state.sessions[st.session_state.current_chat].append({"role": "user", "content": prompt})
-    
-    with st.chat_message("user", avatar="user.png"): 
-        st.markdown(prompt)
+    with st.chat_message("user"): st.markdown(prompt)
 
-    with st.chat_message("assistant", avatar="logo.png"):
-        if any(word in prompt.lower() for word in ["draw", "pic", "image", "photo bana"]):
-            with st.spinner("Generating visualization..."):
-                time.sleep(1.5)
-                safe_prompt = urllib.parse.quote(prompt)
-                img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=800&height=400&nologo=true"
-                st.image(img_url)
-                st.session_state.sessions[st.session_state.current_chat].append({"role": "assistant", "content": f"![Generated Image]({img_url})"})
+    with st.chat_message("assistant"):
+        if any(word in prompt.lower() for word in ["draw", "pic", "image"]):
+            safe_prompt = urllib.parse.quote(prompt)
+            img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=800&height=400&nologo=true"
+            st.image(img_url)
+            st.session_state.sessions[st.session_state.current_chat].append({"role": "assistant", "content": f"![Image]({img_url})"})
         else:
-            instructions = """
-            You are 'HEXALOY', an exceptionally intelligent and professional AI assistant.
-            1. You possess universal knowledge. You can answer ANY question about coding, science, history, daily life, or business perfectly.
-            2. Keep your tone professional, highly accurate, and helpful. Use clear formatting.
-            3. YOU ARE AN AI. Do not claim to be human.
-            4. IF AND ONLY IF asked about your creator, owner, or who made you, reply exactly with: "I was architected and developed by VINIT MAAN."
-            """
-            
+            instructions = "You are HEXALOY. Developed by VINIT MAAN."
             try:
-                def generate_response():
-                    if uploaded_image:
-                        base64_image = encode_image(uploaded_image)
-                        stream = client.chat.completions.create(
-                            messages=[
-                                {"role": "system", "content": instructions},
-                                {"role": "user", "content": [
-                                    {"type": "text", "text": prompt},
-                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                                ]}
-                            ],
-                            model="llama-3.2-11b-vision-preview",
-                            temperature=0.7,
-                            stream=True
-                        )
-                    else:
-                        stream = client.chat.completions.create(
-                            messages=[
-                                {"role": "system", "content": instructions},
-                                {"role": "user", "content": prompt}
-                            ],
-                            model="llama-3.3-70b-versatile",
-                            temperature=0.7,
-                            stream=True
-                        )
-                    
+                def generate():
+                    stream = client.chat.completions.create(
+                        messages=[{"role": "system", "content": instructions}, {"role": "user", "content": prompt}],
+                        model="llama-3.3-70b-versatile",
+                        stream=True
+                    )
                     for chunk in stream:
-                        if chunk.choices[0].delta.content is not None:
+                        if chunk.choices[0].delta.content:
                             yield chunk.choices[0].delta.content
-
-                response_text = st.write_stream(generate_response())
-                st.session_state.sessions[st.session_state.current_chat].append({"role": "assistant", "content": response_text})
                 
+                res = st.write_stream(generate())
+                st.session_state.sessions[st.session_state.current_chat].append({"role": "assistant", "content": res})
             except Exception as e:
-                st.error(f"System Fault: {str(e)}")
+                st.error(f"Error: {e}")
