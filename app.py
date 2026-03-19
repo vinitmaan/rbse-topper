@@ -98,39 +98,93 @@ with st.sidebar:
 
     # --- AVIKA VOICE AI WIDGET ---
     st.markdown("---")
-    st.markdown("<p style='text-align: center; color: #1A56A8; font-weight: 800; font-size: 1.1rem; margin-bottom: 5px;'>📞 TALK TO AVIKA</p>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #64748B; font-size: 0.75rem; margin-top: -10px;'>Hexaloy Voice Assistant</p>", unsafe_allow_html=True)
     
     if "VAPI_PUBLIC_KEY" in st.secrets and "VAPI_ASSISTANT_ID" in st.secrets:
         vapi_public_key = st.secrets["VAPI_PUBLIC_KEY"]
         vapi_assistant_id = st.secrets["VAPI_ASSISTANT_ID"]
 
-        vapi_widget_code = f"""
-        <script>
-          var vapiInstance = null;
-          const script = document.createElement('script');
-          script.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-widget@latest/dist/vapi-widget.js";
-          script.defer = true;
-          document.head.appendChild(script);
+        # Ye naya code ek custom smart button banayega
+        vapi_smart_button = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Inter', sans-serif; background-color: transparent; }}
+                #vapi-btn {{
+                    background-color: #1A56A8;
+                    color: white;
+                    border: none;
+                    padding: 12px 20px;
+                    border-radius: 8px;
+                    font-size: 1.1rem;
+                    font-weight: bold;
+                    cursor: pointer;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    transition: 0.3s;
+                    width: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 8px;
+                }}
+                #vapi-btn:hover {{ background-color: #134282; transform: translateY(-2px); }}
+                #status {{ font-size: 0.75rem; color: #64748B; margin-top: 8px; text-align: center; font-weight: 500; }}
+            </style>
+        </head>
+        <body>
+            <button id="vapi-btn">📞 TALK TO AVIKA</button>
+            <div id="status">Hexaloy Voice Assistant</div>
 
-          script.onload = () => {{
-            vapiInstance = window.vapiSDK.run({{
-              apiKey: "{vapi_public_key}", 
-              assistantId: "{vapi_assistant_id}",
-              config: {{
-                position: "bottom-left", // Left side for the sidebar
-                title: "Call Avika",
-                color: "#1A56A8", 
-              }},
-            }});
-          }};
-        </script>
+            <script>
+                // Load Vapi Native SDK
+                const script = document.createElement('script');
+                script.src = "https://cdn.jsdelivr.net/npm/@vapi-ai/web@latest/dist/vapi.bundle.js";
+                script.defer = true;
+                document.head.appendChild(script);
+
+                script.onload = () => {{
+                    const vapi = new window.Vapi("{vapi_public_key}");
+                    const btn = document.getElementById("vapi-btn");
+                    const status = document.getElementById("status");
+                    let isActive = false;
+
+                    btn.addEventListener("click", () => {{
+                        if (!isActive) {{
+                            vapi.start("{vapi_assistant_id}");
+                            btn.innerHTML = "🛑 END CALL";
+                            btn.style.backgroundColor = "#DC2626"; // Danger Red
+                            status.innerHTML = "Connecting to Avika...";
+                            isActive = true;
+                        }} else {{
+                            vapi.stop();
+                            btn.innerHTML = "📞 TALK TO AVIKA";
+                            btn.style.backgroundColor = "#1A56A8"; // Brand Blue
+                            status.innerHTML = "Call Ended.";
+                            isActive = false;
+                        }}
+                    }});
+
+                    vapi.on('call-start', () => {{
+                        status.innerHTML = "🟢 Avika is listening...";
+                        status.style.color = "#10B981"; // Success Green
+                    }});
+                    
+                    vapi.on('call-end', () => {{
+                        btn.innerHTML = "📞 TALK TO AVIKA";
+                        btn.style.backgroundColor = "#1A56A8";
+                        status.innerHTML = "Hexaloy Voice Assistant";
+                        status.style.color = "#64748B";
+                        isActive = false;
+                    }});
+                }};
+            </script>
+        </body>
+        </html>
         """
-        # Height di hai taaki widget chhup na jaye
-        components.html(vapi_widget_code, height=200)
+        # Height 120 taaki button aur text aaram se fit aa jaye bina kate
+        components.html(vapi_smart_button, height=120)
     else:
         st.error("⚠️ Vapi Secrets missing in App Settings!")
-
 # ==========================================
 # 4. MAIN CHAT & STREAMING LOGIC
 # ==========================================
