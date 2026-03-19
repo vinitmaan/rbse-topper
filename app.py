@@ -95,94 +95,6 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
 
-    # ==========================================
-    # AVIKA VOICE AI - BASE64 HACK (NO TEXT PRINTING BUG)
-    # ==========================================
-    st.markdown("---")
-    st.markdown("<p style='text-align: center; color: #1A56A8; font-weight: 800; font-size: 1.1rem; margin-bottom: 5px;'>📞 TALK TO AVIKA</p>", unsafe_allow_html=True)
-    
-    if "VAPI_PUBLIC_KEY" in st.secrets and "VAPI_ASSISTANT_ID" in st.secrets:
-        vapi_public_key = st.secrets["VAPI_PUBLIC_KEY"]
-        vapi_assistant_id = st.secrets["VAPI_ASSISTANT_ID"]
-
-        # 1. Asli HTML Code bina kisi escape/srcdoc jhanjhat ke
-        raw_html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {{ margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Inter', sans-serif; background: transparent; }}
-                button {{
-                    background-color: #1A56A8; color: white; border: none; padding: 12px 20px;
-                    border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer;
-                    width: 90%; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.3s;
-                    display: flex; justify-content: center; align-items: center; gap: 8px;
-                }}
-                button:hover {{ background-color: #134282; }}
-                #status {{ font-size: 0.75rem; color: #64748B; margin-top: 8px; text-align: center; font-weight: 600; }}
-            </style>
-        </head>
-        <body>
-            <button id="vapi-btn">🎙️ Start Call</button>
-            <div id="status">Hexaloy Voice Assistant</div>
-
-            <script src="https://cdn.jsdelivr.net/npm/@vapi-ai/web@latest/dist/vapi.bundle.js"></script>
-            <script>
-                // Thoda delay diya taaki library load ho jaye
-                setTimeout(() => {{
-                    const vapi = new window.Vapi('{vapi_public_key}');
-                    const btn = document.getElementById('vapi-btn');
-                    const status = document.getElementById('status');
-                    let isActive = false;
-
-                    btn.addEventListener('click', () => {{
-                        if (!isActive) {{
-                            vapi.start('{vapi_assistant_id}');
-                            btn.innerHTML = '🛑 End Call';
-                            btn.style.backgroundColor = '#DC2626'; // Red color on active
-                            status.innerHTML = 'Connecting to Avika...';
-                            isActive = true;
-                        }} else {{
-                            vapi.stop();
-                            btn.innerHTML = '🎙️ Start Call';
-                            btn.style.backgroundColor = '#1A56A8';
-                            status.innerHTML = 'Call Ended';
-                            isActive = false;
-                        }}
-                    }});
-
-                    vapi.on('call-start', () => {{ 
-                        status.innerHTML = '🟢 Avika is listening...'; 
-                        status.style.color = '#10B981'; 
-                    }});
-                    
-                    vapi.on('call-end', () => {{
-                        btn.innerHTML = '🎙️ Start Call';
-                        btn.style.backgroundColor = '#1A56A8';
-                        status.innerHTML = 'Hexaloy Voice Assistant';
-                        status.style.color = '#64748B';
-                        isActive = false;
-                    }});
-                }}, 500);
-            </script>
-        </body>
-        </html>
-        """
-        
-        # 2. THE BRAHMASTRA HACK: HTML ko Base64 mein convert karna
-        b64_html = base64.b64encode(raw_html.encode('utf-8')).decode('utf-8')
-        
-        # 3. Iframe ko seedha encrypted data url dena with allow="microphone"
-        iframe_code = f"""
-        <iframe src="data:text/html;base64,{b64_html}" 
-                style="width: 100%; height: 110px; border: none; overflow: hidden; background: transparent;" 
-                allow="microphone">
-        </iframe>
-        """
-        st.markdown(iframe_code, unsafe_allow_html=True)
-    else:
-        st.error("⚠️ Vapi Secrets missing in App Settings!")
-
 # ==========================================
 # 4. MAIN CHAT & STREAMING LOGIC
 # ==========================================
@@ -260,3 +172,8 @@ if prompt := st.chat_input("Ask Hexaloy anything..."):
                 
             except Exception as e:
                 st.error(f"System Fault: {str(e)}")
+
+
+
+
+
