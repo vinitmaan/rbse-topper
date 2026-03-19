@@ -200,6 +200,37 @@ vapi_widget_code = """
 """
 components.html(vapi_widget_code, height=0)
 
+# ==========================================
+# 5. VAPI VOICE WIDGET (AVIKA)
+# ==========================================
+import streamlit.components.v1 as components
+
+# Secrets se Vapi ki details nikal rahe hain
+vapi_public_key = st.secrets["VAPI_PUBLIC_KEY"]
+vapi_assistant_id = st.secrets["VAPI_ASSISTANT_ID"]
+
+vapi_widget_code = f"""
+<script>
+  var vapiInstance = null;
+  const script = document.createElement('script');
+  script.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-widget@latest/dist/vapi-widget.js";
+  script.defer = true;
+  document.head.appendChild(script);
+
+  script.onload = () => {{
+    vapiInstance = window.vapiSDK.run({{
+      apiKey: "{vapi_public_key}", 
+      assistantId: "{vapi_assistant_id}",
+      config: {{
+        position: "bottom-right",
+        title: "Talk to Avika",
+        color: "#1A56A8", 
+      }},
+    }});
+  }};
+</script>
+"""
+components.html(vapi_widget_code, height=0)
 
 
 
