@@ -4,748 +4,634 @@ import time
 import base64
 from groq import Groq
 
-# ==========================================
-# 1. PAGE CONFIG & SECRETS VALIDATION
-# ==========================================
-st.set_page_config(page_title="HEXALOY AI", page_icon="logo.png", layout="wide", initial_sidebar_state="expanded")
+# ─────────────────────────────────────────
+# PAGE CONFIG
+# ─────────────────────────────────────────
+st.set_page_config(
+    page_title="HEXALOY AI",
+    page_icon="logo.png",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 if "GROQ_API_KEY" in st.secrets:
     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 else:
-    st.error("🚨 System Error: GROQ_API_KEY is missing in Streamlit Secrets!")
+    st.error("🚨 GROQ_API_KEY missing in Streamlit Secrets!")
     st.stop()
 
-VAPI_PUBLIC_KEY = st.secrets.get("VAPI_PUBLIC_KEY", "24cd89bd-9a4f-48d2-9566-26e861b9c4b5")
-VAPI_ASSISTANT_ID = st.secrets.get("VAPI_ASSISTANT_ID", "5434184d-6893-4933-b90a-a4ce9eeac55a")
+VAPI_PUBLIC_KEY    = st.secrets.get("VAPI_PUBLIC_KEY",    "24cd89bd-9a4f-48d2-9566-26e861b9c4b5")
+VAPI_ASSISTANT_ID  = st.secrets.get("VAPI_ASSISTANT_ID",  "5434184d-6893-4933-b90a-a4ce9eeac55a")
 
-# ==========================================
-# 2. CSS — AUTO DARK/LIGHT + SIDEBAR TOGGLE
-# ==========================================
-st.markdown("""
+def encode_image(f):
+    return base64.b64encode(f.getvalue()).decode("utf-8")
+
+# ─────────────────────────────────────────
+# SESSION STATE
+# ─────────────────────────────────────────
+if "sessions"     not in st.session_state:
+    st.session_state.sessions     = {"New Session": []}
+if "current_chat" not in st.session_state:
+    st.session_state.current_chat = "New Session"
+if "sidebar_open" not in st.session_state:
+    st.session_state.sidebar_open = True
+
+# ─────────────────────────────────────────
+# FULL CSS
+# ─────────────────────────────────────────
+st.markdown(r"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
 
-:root {
-    --bg-primary: #F8FAFC;
-    --bg-secondary: #FFFFFF;
-    --bg-glass: rgba(255,255,255,0.72);
-    --bg-sidebar: rgba(255,255,255,0.98);
-    --text-primary: #0F172A;
-    --text-secondary: #475569;
-    --text-muted: #94A3B8;
-    --accent: #2563EB;
-    --accent-glow: rgba(37,99,235,0.15);
-    --border: rgba(148,163,184,0.25);
-    --border-solid: #E2E8F0;
-    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-    --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
-    --shadow-glow: 0 0 24px rgba(37,99,235,0.18);
-    --input-bg: #FFFFFF;
-    --scrollbar-thumb: #CBD5E1;
-    --chat-odd: rgba(241,245,249,0.8);
-    --chat-even: rgba(255,255,255,0.95);
-    --toggle-bg: #FFFFFF;
-    --toggle-border: #E2E8F0;
-    --toggle-shadow: 0 2px 8px rgba(0,0,0,0.12);
+/* ── TOKENS ─────────────────────────────── */
+:root{
+  --bg:       #F0F2F7;
+  --surface:  #FFFFFF;
+  --sidebar:  #FFFFFF;
+  --txt:      #0D1117;
+  --txt2:     #4A5568;
+  --txt3:     #9AA5B4;
+  --acc:      #1847F5;
+  --acc2:     #6C2BD9;
+  --acc-glow: rgba(24,71,245,.18);
+  --bdr:      rgba(0,0,0,.08);
+  --bdr2:     rgba(0,0,0,.12);
+  --chat-u:   #EEF2FF;
+  --chat-a:   #FFFFFF;
+  --inp:      #FFFFFF;
+  --shadow:   0 2px 12px rgba(0,0,0,.08);
+  --shadow2:  0 8px 32px rgba(0,0,0,.12);
+  --radius:   14px;
 }
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg-primary: #0B0F1A;
-        --bg-secondary: #111827;
-        --bg-glass: rgba(17,24,39,0.80);
-        --bg-sidebar: rgba(11,15,26,0.98);
-        --text-primary: #F1F5F9;
-        --text-secondary: #94A3B8;
-        --text-muted: #64748B;
-        --accent: #3B82F6;
-        --accent-glow: rgba(59,130,246,0.20);
-        --border: rgba(255,255,255,0.08);
-        --border-solid: rgba(255,255,255,0.10);
-        --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
-        --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
-        --shadow-glow: 0 0 24px rgba(59,130,246,0.25);
-        --input-bg: #1E293B;
-        --scrollbar-thumb: #334155;
-        --chat-odd: rgba(17,24,39,0.80);
-        --chat-even: rgba(30,41,59,0.60);
-        --toggle-bg: #1E293B;
-        --toggle-border: rgba(255,255,255,0.12);
-        --toggle-shadow: 0 2px 8px rgba(0,0,0,0.4);
-    }
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:      #070B14;
+    --surface: #0F1623;
+    --sidebar: #0A0F1C;
+    --txt:     #E8EDF5;
+    --txt2:    #8B95A8;
+    --txt3:    #4A5568;
+    --acc:     #4F80FF;
+    --acc2:    #9F6EFF;
+    --acc-glow:rgba(79,128,255,.20);
+    --bdr:     rgba(255,255,255,.07);
+    --bdr2:    rgba(255,255,255,.12);
+    --chat-u:  rgba(79,128,255,.10);
+    --chat-a:  rgba(255,255,255,.04);
+    --inp:     #111827;
+    --shadow:  0 2px 12px rgba(0,0,0,.4);
+    --shadow2: 0 8px 32px rgba(0,0,0,.5);
+  }
 }
 
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif !important;
-    background-color: var(--bg-primary) !important;
-    color: var(--text-primary) !important;
+/* ── RESET ───────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body,[class*="css"]{
+  font-family:'DM Sans',sans-serif!important;
+  background:var(--bg)!important;
+  color:var(--txt)!important;
 }
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
+#MainMenu,footer,header{visibility:hidden;}
 
-.main .block-container {
-    padding-top: 2rem !important;
-    padding-bottom: 7rem !important;
-    max-width: 900px;
-    margin: 0 auto;
-}
-
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 10px; }
-
-/* SIDEBAR */
-section[data-testid="stSidebar"] {
-    background: var(--bg-sidebar) !important;
-    border-right: 1px solid var(--border-solid) !important;
-    backdrop-filter: blur(20px);
-    transition: all 0.3s ease;
-}
-section[data-testid="stSidebar"] > div { padding: 20px 16px; }
-
-/* SIDEBAR TOGGLE ARROW BUTTON */
-.sidebar-toggle-btn {
-    position: fixed;
-    top: 50%;
-    left: 0;
-    transform: translateY(-50%);
-    z-index: 9999;
-    background: var(--toggle-bg);
-    border: 1px solid var(--toggle-border);
-    border-radius: 0 10px 10px 0;
-    width: 22px;
-    height: 56px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: var(--toggle-shadow);
-    transition: all 0.25s ease;
-    color: var(--text-secondary);
-    font-size: 12px;
-    font-weight: 700;
-}
-.sidebar-toggle-btn:hover {
-    background: var(--accent);
-    color: white;
-    border-color: var(--accent);
-    width: 26px;
-    box-shadow: var(--shadow-glow);
+/* ── MAIN CONTAINER ──────────────────────── */
+.main .block-container{
+  padding:2rem 2rem 8rem!important;
+  max-width:860px;
+  margin:0 auto;
 }
 
-/* BUTTONS */
-.stButton > button {
-    width: 100%;
-    text-align: left;
-    background: transparent;
-    border: 1px solid transparent;
-    padding: 10px 14px;
-    border-radius: 10px;
-    font-weight: 500;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    transition: all 0.2s ease;
-    cursor: pointer;
+/* ── SCROLLBAR ───────────────────────────── */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:4px;}
+
+/* ── SIDEBAR ─────────────────────────────── */
+section[data-testid="stSidebar"]{
+  background:var(--sidebar)!important;
+  border-right:1px solid var(--bdr)!important;
 }
-.stButton > button:hover {
-    background: var(--accent-glow);
-    color: var(--accent);
-    border: 1px solid var(--accent-glow);
-    transform: translateX(2px);
+section[data-testid="stSidebar"]>div{padding:20px 14px!important;}
+
+/* ── STREAMLIT BUTTONS (sidebar) ─────────── */
+.stButton>button{
+  width:100%;text-align:left;
+  background:transparent;
+  border:1px solid transparent;
+  padding:9px 13px;
+  border-radius:10px;
+  font-family:'DM Sans',sans-serif;
+  font-weight:500;font-size:.84rem;
+  color:var(--txt2);
+  transition:all .18s;
 }
-.new-chat-btn > div > button {
-    background: linear-gradient(135deg, #2563EB, #1E40AF) !important;
-    color: white !important;
-    font-weight: 700 !important;
-    font-size: 0.9rem !important;
-    border-radius: 12px !important;
-    border: none !important;
-    padding: 12px 20px !important;
-    box-shadow: var(--shadow-glow) !important;
-    text-align: center !important;
-    justify-content: center !important;
-    margin-bottom: 16px;
-    transition: all 0.3s ease !important;
+.stButton>button:hover{
+  background:var(--acc-glow);
+  color:var(--acc);
+  border-color:var(--acc-glow);
 }
-.new-chat-btn > div > button:hover {
-    background: linear-gradient(135deg, #1D4ED8, #1E3A8A) !important;
-    box-shadow: 0 0 32px rgba(37,99,235,0.4) !important;
-    transform: translateY(-1px) !important;
+/* new session button */
+div[data-testid="stButton"].new-session-btn button,
+.nsb>div>button{
+  background:linear-gradient(135deg,var(--acc),var(--acc2))!important;
+  color:#fff!important;font-weight:700!important;
+  border-radius:12px!important;border:none!important;
+  padding:11px!important;text-align:center!important;
+  box-shadow:0 0 20px var(--acc-glow)!important;
+  font-family:'DM Sans',sans-serif!important;
 }
 
-/* CHAT MESSAGES */
-div[data-testid="stChatMessage"] {
-    border-radius: 16px !important;
-    padding: 16px 20px !important;
-    margin-bottom: 16px !important;
-    border: 1px solid var(--border) !important;
-    backdrop-filter: blur(10px);
-    transition: all 0.2s ease;
-    animation: fadeSlideIn 0.3s ease forwards;
+/* ── CHAT MESSAGES ───────────────────────── */
+div[data-testid="stChatMessage"]{
+  border-radius:var(--radius)!important;
+  padding:14px 18px!important;
+  margin-bottom:12px!important;
+  border:1px solid var(--bdr)!important;
+  animation:fadeUp .28s ease forwards;
 }
-div[data-testid="stChatMessage"]:nth-child(odd) {
-    background: var(--chat-odd) !important;
-    color: var(--text-primary) !important;
+div[data-testid="stChatMessage"]:nth-child(odd){background:var(--chat-u)!important;}
+div[data-testid="stChatMessage"]:nth-child(even){background:var(--chat-a)!important;box-shadow:var(--shadow);}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+/* ── CHAT INPUT ──────────────────────────── */
+.stChatInputContainer{
+  border-radius:16px!important;
+  border:1.5px solid var(--bdr2)!important;
+  background:var(--inp)!important;
+  box-shadow:var(--shadow)!important;
 }
-div[data-testid="stChatMessage"]:nth-child(even) {
-    background: var(--chat-even) !important;
-    color: var(--text-primary) !important;
-    box-shadow: var(--shadow-sm);
+.stChatInputContainer:focus-within{
+  border-color:var(--acc)!important;
+  box-shadow:0 0 0 3px var(--acc-glow),var(--shadow)!important;
 }
-div[data-testid="stChatMessage"]:hover {
-    border-color: var(--accent-glow) !important;
-    box-shadow: var(--shadow-md);
-}
-@keyframes fadeSlideIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
+.stChatInputContainer textarea{color:var(--txt)!important;background:transparent!important;}
+
+/* ── FILE UPLOADER ───────────────────────── */
+.stFileUploader{background:transparent!important;}
+
+/* ── ACTIVE SIDEBAR ITEM ─────────────────── */
+.active-chat>div>button{
+  background:var(--acc-glow)!important;
+  color:var(--acc)!important;
+  border-color:var(--acc-glow)!important;
+  font-weight:600!important;
 }
 
-/* CHAT INPUT */
-.stChatInputContainer {
-    border-radius: 16px !important;
-    border: 1.5px solid var(--border-solid) !important;
-    background: var(--input-bg) !important;
-    box-shadow: var(--shadow-md) !important;
-}
-.stChatInputContainer:focus-within {
-    border-color: var(--accent) !important;
-    box-shadow: var(--shadow-glow) !important;
-}
-.stChatInputContainer textarea {
-    color: var(--text-primary) !important;
-    background: transparent !important;
+/* ── SECTION LABEL ───────────────────────── */
+.slabel{
+  font-size:.68rem;font-weight:700;letter-spacing:1.6px;
+  text-transform:uppercase;color:var(--txt3);
+  margin:18px 0 6px 2px;
 }
 
-/* SIGNATURE BOX */
-.signature-box {
-    margin-top: 24px;
-    padding: 14px;
-    border-radius: 12px;
-    background: var(--bg-glass);
-    border: 1px solid var(--border-solid);
-    text-align: center;
-    backdrop-filter: blur(10px);
+/* ── SIGNATURE ───────────────────────────── */
+.sig{
+  margin-top:auto;padding:14px;
+  border-radius:12px;
+  border:1px solid var(--bdr);
+  text-align:center;
+  background:var(--bg);
 }
-.signature-box p {
-    margin: 0;
-    font-size: 0.68rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    font-weight: 600;
+.sig p{font-size:.65rem;color:var(--txt3);letter-spacing:1.4px;text-transform:uppercase;}
+.sig h3{font-family:'Syne',sans-serif;font-size:1rem;font-weight:800;color:var(--txt);letter-spacing:.5px;margin:4px 0 2px;}
+
+/* ── HERO ────────────────────────────────── */
+.hero{text-align:center;padding:10px 0 6px;}
+.hero h1{
+  font-family:'Syne',sans-serif;font-weight:800;font-size:2.8rem;
+  background:linear-gradient(135deg,var(--acc) 0%,var(--acc2) 60%,var(--acc) 100%);
+  background-size:200%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:shimmer 4s linear infinite;
+  letter-spacing:-1px;line-height:1.1;
 }
-.signature-box h3 {
-    margin: 5px 0 2px 0;
-    font-size: 1rem;
-    color: var(--text-primary);
-    font-weight: 800;
-    letter-spacing: 1px;
+@keyframes shimmer{to{background-position:200%;}}
+.hero p{color:var(--txt2);font-size:.92rem;margin-top:6px;}
+
+/* ── STATUS PILL ─────────────────────────── */
+.pill{
+  display:inline-flex;align-items:center;gap:7px;
+  background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.22);
+  color:#16A34A;border-radius:99px;padding:5px 14px;
+  font-size:.73rem;font-weight:600;margin-top:10px;
+}
+@media(prefers-color-scheme:dark){.pill{color:#4ADE80;}}
+.dot{width:7px;height:7px;border-radius:50%;background:#22C55E;animation:blink 1.6s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+/* ── WELCOME CARD ────────────────────────── */
+.wcard{
+  background:var(--surface);border:1px solid var(--bdr);
+  border-radius:20px;padding:32px 28px;
+  text-align:center;margin:20px 0 26px;
+  box-shadow:var(--shadow);
+}
+.wcard .big{font-size:2.6rem;line-height:1;}
+.wcard h2{font-family:'Syne',sans-serif;font-size:1.35rem;font-weight:700;margin:12px 0 8px;}
+.wcard>p{color:var(--txt2);font-size:.88rem;line-height:1.65;}
+.fgrid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+  margin-top:20px;
+}
+.fc{
+  background:var(--bg);border:1px solid var(--bdr);
+  border-radius:12px;padding:13px 10px;
+  font-size:.8rem;color:var(--txt2);font-weight:500;
+  cursor:default;transition:all .18s;
+}
+.fc:hover{border-color:var(--acc);color:var(--acc);background:var(--acc-glow);}
+.fc .ico{font-size:1.3rem;display:block;margin-bottom:5px;}
+
+/* ── TYPING ──────────────────────────────── */
+.typing{display:flex;align-items:center;gap:5px;padding:6px 0;}
+.td{
+  width:8px;height:8px;border-radius:50%;background:var(--acc);
+  animation:bounce 1.1s ease-in-out infinite;
+}
+.td:nth-child(2){animation-delay:.18s;}
+.td:nth-child(3){animation-delay:.36s;}
+@keyframes bounce{0%,60%,100%{transform:none;opacity:.55;}30%{transform:translateY(-6px);opacity:1;}}
+
+/* ── VOICE BUTTONS ───────────────────────── */
+.vrow{
+  display:flex;justify-content:center;align-items:center;
+  gap:10px;margin:16px 0 22px;flex-wrap:wrap;
+}
+.vbtn{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--surface);border:1.5px solid var(--bdr2);
+  border-radius:99px;padding:10px 22px;
+  font-family:'DM Sans',sans-serif;font-size:.84rem;font-weight:600;
+  color:var(--txt2);cursor:pointer;transition:all .2s;
+  box-shadow:var(--shadow);
+}
+.vbtn:hover{border-color:var(--acc);color:var(--acc);box-shadow:0 0 18px var(--acc-glow);}
+.vbtn:active{transform:scale(.97);}
+.vbtn.rec{border-color:#EF4444;color:#EF4444;background:rgba(239,68,68,.08);animation:recpulse 1s ease-in-out infinite;}
+.vbtn.vcall-on{border-color:var(--acc2);color:var(--acc2);background:rgba(108,43,217,.08);animation:recpulse 1s ease-in-out infinite;}
+@keyframes recpulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.3);}
+  50%{box-shadow:0 0 0 7px rgba(239,68,68,0);}
 }
 
-.section-label {
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    margin: 16px 0 8px 4px;
-}
-hr {
-    border: none !important;
-    border-top: 1px solid var(--border-solid) !important;
-    margin: 16px 0 !important;
+/* ── VAPI STATUS ─────────────────────────── */
+.vstatus{
+  text-align:center;font-size:.82rem;font-weight:600;color:var(--acc2);
+  padding:8px 16px;border-radius:10px;
+  border:1px solid rgba(108,43,217,.2);background:rgba(108,43,217,.07);
+  margin:0 auto 12px;display:none;max-width:400px;
 }
 
-/* HERO */
-.hero-title {
-    font-size: 2.6rem;
-    font-weight: 900;
-    text-align: center;
-    background: linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #2563EB 100%);
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: shimmer 3s linear infinite;
-    letter-spacing: -0.5px;
-    margin-bottom: 4px;
-}
-@keyframes shimmer { to { background-position: 200% center; } }
-.hero-sub {
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 0.95rem;
-    font-weight: 500;
-    margin-bottom: 16px;
-}
-.status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(34,197,94,0.1);
-    border: 1px solid rgba(34,197,94,0.25);
-    color: #16A34A;
-    border-radius: 20px;
-    padding: 4px 14px;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-@media (prefers-color-scheme: dark) { .status-badge { color: #4ADE80; } }
-.pulse-dot {
-    width: 7px; height: 7px;
-    background: #22C55E;
-    border-radius: 50%;
-    display: inline-block;
-    animation: pulse 1.5s ease-in-out infinite;
-}
-@keyframes pulse {
-    0%,100% { opacity:1; transform:scale(1); }
-    50% { opacity:0.5; transform:scale(0.8); }
-}
-
-/* VOICE BUTTONS ROW */
-.voice-row {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 12px;
-    margin: 14px 0 20px 0;
-    flex-wrap: wrap;
-}
-.v-btn {
-    background: var(--bg-glass);
-    border: 1.5px solid var(--border-solid);
-    border-radius: 50px;
-    padding: 10px 22px;
-    cursor: pointer;
-    font-size: 0.84rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    transition: all 0.2s ease;
-    backdrop-filter: blur(10px);
-    font-family: 'Inter', sans-serif;
-}
-.v-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-    box-shadow: var(--shadow-glow);
-    transform: translateY(-1px);
-}
-.v-btn.recording {
-    background: rgba(239,68,68,0.1);
-    border-color: #EF4444;
-    color: #EF4444;
-    animation: recordPulse 1s ease-in-out infinite;
-}
-.v-btn.vapi-active {
-    background: rgba(124,58,237,0.1);
-    border-color: #7C3AED;
-    color: #7C3AED;
-    animation: recordPulse 1s ease-in-out infinite;
-}
-@keyframes recordPulse {
-    0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.3); }
-    50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
-}
-
-/* TYPING INDICATOR */
-.typing-indicator { display:flex; align-items:center; gap:5px; padding:8px 0; }
-.typing-dot {
-    width:8px; height:8px;
-    background: var(--accent);
-    border-radius:50%;
-    animation: typingBounce 1.2s ease-in-out infinite;
-}
-.typing-dot:nth-child(2) { animation-delay:0.2s; }
-.typing-dot:nth-child(3) { animation-delay:0.4s; }
-@keyframes typingBounce {
-    0%,60%,100% { transform:translateY(0); opacity:0.6; }
-    30% { transform:translateY(-6px); opacity:1; }
-}
-
-/* WELCOME CARD */
-.welcome-card {
-    background: var(--bg-glass);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 30px;
-    text-align: center;
-    backdrop-filter: blur(16px);
-    margin: 16px 0 28px 0;
-}
-.welcome-card h2 { font-size:1.25rem; font-weight:700; color:var(--text-primary); margin:10px 0 8px 0; }
-.welcome-card p { color:var(--text-secondary); font-size:0.88rem; line-height:1.6; margin:0; }
-.feature-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:16px; text-align:left; }
-.feature-item {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-solid);
-    border-radius:10px;
-    padding:11px 13px;
-    font-size:0.82rem;
-    color:var(--text-secondary);
-    font-weight:500;
-}
-.feature-item span { font-size:1.05rem; margin-right:6px; }
-
-/* VAPI STATUS BOX */
-.vapi-status {
-    background: rgba(124,58,237,0.08);
-    border: 1px solid rgba(124,58,237,0.2);
-    border-radius: 12px;
-    padding: 10px 16px;
-    font-size: 0.82rem;
-    color: #7C3AED;
-    font-weight: 600;
-    text-align: center;
-    margin: 8px 0;
-    display: none;
-}
-@media (prefers-color-scheme: dark) { .vapi-status { color: #A78BFA; } }
-
-.active-chat > div > button {
-    background: var(--accent-glow) !important;
-    color: var(--accent) !important;
-    border-color: var(--accent-glow) !important;
+/* ── SIDEBAR TOGGLE ──────────────────────── */
+/* Pure Streamlit button in sidebar — styled as pill */
+.tog-wrap>div>button{
+  background:linear-gradient(90deg,var(--acc),var(--acc2))!important;
+  color:#fff!important;font-weight:700!important;
+  border-radius:99px!important;border:none!important;
+  padding:8px 18px!important;font-size:.8rem!important;
+  width:auto!important;
+  box-shadow:0 0 12px var(--acc-glow)!important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 3. JS — SIDEBAR TOGGLE + BROWSER MIC + VAPI
-# ==========================================
-js_code = f"""
-<script src="https://cdn.jsdelivr.net/npm/@vapi-ai/web@latest/dist/vapi.js"></script>
-
+# ─────────────────────────────────────────
+# VAPI + MIC JS  (injected once, works globally)
+# ─────────────────────────────────────────
+VAPI_JS = f"""
 <script>
-// ===== SIDEBAR TOGGLE =====
-let sidebarVisible = true;
+(function(){{
+  // ── load Vapi SDK ──
+  if(!window.__vapiLoaded){{
+    var s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/@vapi-ai/web@latest/dist/vapi.umd.js';
+    s.onload=function(){{window.__vapiLoaded=true;}};
+    document.head.appendChild(s);
+  }}
 
-function toggleSidebar() {{
-    const sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
-    const toggleBtn = document.getElementById('sidebarToggle');
-    if (!sidebar) return;
-    
-    if (sidebarVisible) {{
-        sidebar.style.transform = 'translateX(-110%)';
-        sidebar.style.transition = 'transform 0.3s ease';
-        if (toggleBtn) {{ toggleBtn.innerHTML = '▶'; toggleBtn.style.left = '0px'; }}
-        sidebarVisible = false;
-    }} else {{
-        sidebar.style.transform = 'translateX(0%)';
-        sidebar.style.transition = 'transform 0.3s ease';
-        if (toggleBtn) {{ toggleBtn.innerHTML = '◀'; toggleBtn.style.left = ''; }}
-        sidebarVisible = true;
-    }}
-}}
+  // ── helpers ──
+  function chatTextarea(){{
+    return window.parent.document.querySelector('textarea[data-testid="stChatInputTextArea"]');
+  }}
+  function setTA(val){{
+    var ta=chatTextarea();
+    if(!ta) return;
+    var setter=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
+    setter.call(ta,val);
+    ta.dispatchEvent(new Event('input',{{bubbles:true}}));
+    ta.focus();
+  }}
 
-// ===== BROWSER SPEECH RECOGNITION =====
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-function startBrowserMic() {{
-    if (!SpeechRecognition) {{
-        alert("Voice input not supported. Please use Google Chrome.");
-        return;
-    }}
-    const rec = new SpeechRecognition();
-    rec.lang = 'hi-IN';
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-
-    const btn = document.getElementById('browserMicBtn');
-    if (btn) {{ btn.classList.add('recording'); btn.innerHTML = '🔴 Sun raha hun...'; }}
-
-    rec.start();
-
-    rec.onresult = function(event) {{
-        const transcript = event.results[0][0].transcript;
-        const chatInput = window.parent.document.querySelector('textarea[data-testid="stChatInputTextArea"]');
-        if (chatInput) {{
-            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-            nativeInputValueSetter.call(chatInput, transcript);
-            chatInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
-            chatInput.focus();
-        }}
+  // ── Browser Mic ──
+  window.hexStartMic=function(){{
+    var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){{alert('Chrome browser use karo mic ke liye!');return;}}
+    var r=new SR();
+    r.lang='hi-IN';r.interimResults=false;r.maxAlternatives=1;
+    var btn=document.getElementById('hxMicBtn');
+    if(btn){{btn.classList.add('rec');btn.innerHTML='&#128308; Sun raha hun...';}}
+    r.start();
+    r.onresult=function(e){{ setTA(e.results[0][0].transcript); }};
+    r.onend=function(){{if(btn){{btn.classList.remove('rec');btn.innerHTML='&#127908; Mic Input';}}}};
+    r.onerror=function(e){{
+      if(btn){{btn.classList.remove('rec');btn.innerHTML='&#127908; Mic Input';}}
+      if(e.error!=='no-speech')alert('Mic error: '+e.error);
     }};
+  }};
 
-    rec.onend = function() {{
-        if (btn) {{ btn.classList.remove('recording'); btn.innerHTML = '🎤 Mic (Browser)'; }}
-    }};
-
-    rec.onerror = function(e) {{
-        if (btn) {{ btn.classList.remove('recording'); btn.innerHTML = '🎤 Mic (Browser)'; }}
-        if (e.error !== 'no-speech') alert('Voice error: ' + e.error);
-    }};
-}}
-
-// ===== VAPI VOICE ASSISTANT =====
-let vapiInstance = null;
-let vapiCallActive = false;
-
-async function startVapiCall() {{
-    const btn = document.getElementById('vapiBtn');
-    const statusBox = document.getElementById('vapiStatus');
-
-    if (vapiCallActive) {{
-        // Stop call
-        if (vapiInstance) vapiInstance.stop();
-        vapiCallActive = false;
-        if (btn) {{ btn.classList.remove('vapi-active'); btn.innerHTML = '🤖 VAPI Voice Call'; }}
-        if (statusBox) statusBox.style.display = 'none';
-        return;
+  // ── VAPI Call ──
+  var vapi=null,callOn=false;
+  window.hexVapiToggle=function(){{
+    var btn=document.getElementById('hxVapiBtn');
+    var sta=document.getElementById('hxVapiStatus');
+    if(callOn){{
+      if(vapi)vapi.stop();
+      callOn=false;
+      if(btn){{btn.classList.remove('vcall-on');btn.innerHTML='&#129302; VAPI Voice Call';}}
+      if(sta)sta.style.display='none';
+      return;
     }}
-
-    try {{
-        if (!vapiInstance) {{
-            vapiInstance = new Vapi("{VAPI_PUBLIC_KEY}");
-
-            vapiInstance.on('call-start', () => {{
-                vapiCallActive = true;
-                if (btn) {{ btn.classList.add('vapi-active'); btn.innerHTML = '🔴 Call Chal Rahi Hai (Band Karo)'; }}
-                if (statusBox) {{ statusBox.style.display = 'block'; statusBox.innerHTML = '🟣 HEXALOY Agent se baat ho rahi hai...'; }}
-            }});
-
-            vapiInstance.on('call-end', () => {{
-                vapiCallActive = false;
-                if (btn) {{ btn.classList.remove('vapi-active'); btn.innerHTML = '🤖 VAPI Voice Call'; }}
-                if (statusBox) statusBox.style.display = 'none';
-            }});
-
-            vapiInstance.on('message', (msg) => {{
-                if (msg.type === 'transcript' && msg.transcriptType === 'final') {{
-                    const chatInput = window.parent.document.querySelector('textarea[data-testid="stChatInputTextArea"]');
-                    if (chatInput && msg.role === 'assistant') {{
-                        // Show assistant reply in chat input area as info
-                    }}
-                }}
-            }});
-
-            vapiInstance.on('error', (e) => {{
-                console.error('VAPI Error:', e);
-                if (btn) {{ btn.classList.remove('vapi-active'); btn.innerHTML = '🤖 VAPI Voice Call'; }}
-                if (statusBox) statusBox.style.display = 'none';
-                vapiCallActive = false;
-            }});
-        }}
-
-        await vapiInstance.start("{VAPI_ASSISTANT_ID}");
-
-    }} catch(err) {{
-        console.error('VAPI start error:', err);
-        alert('VAPI Error: ' + err.message);
+    function doStart(){{
+      if(typeof Vapi==='undefined'){{setTimeout(doStart,300);return;}}
+      if(!vapi){{
+        vapi=new Vapi('{VAPI_PUBLIC_KEY}');
+        vapi.on('call-start',function(){{
+          callOn=true;
+          if(btn){{btn.classList.add('vcall-on');btn.innerHTML='&#128308; Call Chal Rahi Hai — Band Karo';}}
+          if(sta){{sta.style.display='block';sta.innerHTML='&#128995; Hexaloy Agent se baat ho rahi hai...';}};
+        }});
+        vapi.on('call-end',function(){{
+          callOn=false;
+          if(btn){{btn.classList.remove('vcall-on');btn.innerHTML='&#129302; VAPI Voice Call';}}
+          if(sta)sta.style.display='none';
+        }});
+        vapi.on('error',function(e){{
+          console.error('VAPI:',e);
+          callOn=false;
+          if(btn){{btn.classList.remove('vcall-on');btn.innerHTML='&#129302; VAPI Voice Call';}}
+          if(sta)sta.style.display='none';
+        }});
+      }}
+      vapi.start('{VAPI_ASSISTANT_ID}');
     }}
-}}
+    doStart();
+  }};
+}})();
 </script>
-
-<!-- SIDEBAR TOGGLE ARROW -->
-<button class="sidebar-toggle-btn" id="sidebarToggle" onclick="toggleSidebar()" title="Sidebar Toggle">◀</button>
-
-<!-- VOICE BUTTONS ROW -->
-<div class="voice-row">
-    <button class="v-btn" id="browserMicBtn" onclick="startBrowserMic()">🎤 Mic (Browser)</button>
-    <button class="v-btn" id="vapiBtn" onclick="startVapiCall()">🤖 VAPI Voice Call</button>
-</div>
-
-<!-- VAPI STATUS -->
-<div class="vapi-status" id="vapiStatus"></div>
 """
 
-def encode_image(uploaded_file):
-    return base64.b64encode(uploaded_file.getvalue()).decode('utf-8')
+VOICE_HTML = """
+<div class="vrow">
+  <button class="vbtn" id="hxMicBtn" onclick="hexStartMic()">🎤 Mic Input</button>
+  <button class="vbtn" id="hxVapiBtn" onclick="hexVapiToggle()">🤖 VAPI Voice Call</button>
+</div>
+<div class="vstatus" id="hxVapiStatus"></div>
+"""
 
-# ==========================================
-# 4. SESSION STATE
-# ==========================================
-if "sessions" not in st.session_state:
-    st.session_state.sessions = {"New Session": []}
-if "current_chat" not in st.session_state:
-    st.session_state.current_chat = "New Session"
-
-# ==========================================
-# 5. SIDEBAR
-# ==========================================
+# ─────────────────────────────────────────
+# SIDEBAR
+# ─────────────────────────────────────────
 with st.sidebar:
+    # Logo
     try:
-        with open("logo.png", "rb") as image_file:
-            logo_base64 = base64.b64encode(image_file.read()).decode()
-        logo_html = f"""
-        <div style="display:flex;align-items:center;justify-content:center;margin-bottom:28px;padding-top:8px;">
-            <img src="data:image/png;base64,{logo_base64}" style="width:46px;margin-right:12px;border-radius:10px;box-shadow:0 4px 12px rgba(37,99,235,0.25);">
-            <span style="font-family:'Inter',sans-serif;font-size:2rem;font-weight:900;background:linear-gradient(135deg,#2563EB,#7C3AED);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:2px;">HEXALOY</span>
-        </div>
-        """
-        st.markdown(logo_html, unsafe_allow_html=True)
-    except FileNotFoundError:
-        st.markdown("<h2 style='color:#2563EB;font-weight:900;text-align:center;letter-spacing:2px;'>HEXALOY</h2>", unsafe_allow_html=True)
+        logo_b64 = base64.b64encode(open("logo.png","rb").read()).decode()
+        st.markdown(f"""
+        <div style="display:flex;align-items:center;justify-content:center;margin-bottom:24px;padding-top:6px;">
+          <img src="data:image/png;base64,{logo_b64}"
+               style="width:42px;margin-right:11px;border-radius:10px;box-shadow:0 4px 14px var(--acc-glow);">
+          <span style="font-family:'Syne',sans-serif;font-size:1.85rem;font-weight:800;
+                       background:linear-gradient(135deg,var(--acc),var(--acc2));
+                       -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+                       background-clip:text;letter-spacing:2px;">HEXALOY</span>
+        </div>""", unsafe_allow_html=True)
+    except:
+        st.markdown("<h2 style='font-family:Syne,sans-serif;color:#1847F5;text-align:center;'>HEXALOY</h2>",
+                    unsafe_allow_html=True)
 
-    st.markdown("<div class='new-chat-btn'>", unsafe_allow_html=True)
-    if st.button("➕  New Session"):
-        chat_id = f"Session {len(st.session_state.sessions) + 1}"
-        st.session_state.sessions[chat_id] = []
-        st.session_state.current_chat = chat_id
+    # New Session
+    st.markdown("<div class='nsb'>", unsafe_allow_html=True)
+    if st.button("＋  New Session", key="new_sess"):
+        cid = f"Session {len(st.session_state.sessions)+1}"
+        st.session_state.sessions[cid] = []
+        st.session_state.current_chat  = cid
         st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("<div class='section-label'>Chat History</div>", unsafe_allow_html=True)
-    for chat_name in reversed(list(st.session_state.sessions.keys())):
-        is_active = chat_name == st.session_state.current_chat
-        if is_active:
-            st.markdown("<div class='active-chat'>", unsafe_allow_html=True)
-        if st.button(f"💬  {chat_name}", key=f"btn_{chat_name}"):
-            st.session_state.current_chat = chat_name
+    # History
+    st.markdown("<div class='slabel'>Chat History</div>", unsafe_allow_html=True)
+    for name in reversed(list(st.session_state.sessions.keys())):
+        active = name == st.session_state.current_chat
+        if active: st.markdown("<div class='active-chat'>", unsafe_allow_html=True)
+        if st.button(f"💬  {name}", key=f"chat_{name}"):
+            st.session_state.current_chat = name
             st.rerun()
-        if is_active:
-            st.markdown("</div>", unsafe_allow_html=True)
+        if active: st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown("<div class='section-label'>📸 Image Analysis</div>", unsafe_allow_html=True)
-    uploaded_image = st.file_uploader("Upload image (optional)", type=['png','jpg','jpeg'], label_visibility="collapsed")
+    st.markdown("<div class='slabel'>📸 Image Analysis</div>", unsafe_allow_html=True)
+    uploaded_image = st.file_uploader("img", type=["png","jpg","jpeg"],
+                                       label_visibility="collapsed")
     if uploaded_image:
-        st.image(uploaded_image, caption="Ready for analysis", use_container_width=True)
+        st.image(uploaded_image, use_container_width=True)
 
+    # Signature
     st.markdown("""
-        <div class="signature-box">
-            <p>Architected by</p>
-            <h3>VINIT MAAN</h3>
-            <p style="font-size:0.62rem;margin-top:4px;letter-spacing:1px;">Enterprise AI v6.0</p>
-        </div>
-    """, unsafe_allow_html=True)
+    <div class="sig">
+      <p>Architected by</p>
+      <h3>VINIT MAAN</h3>
+      <p style="font-size:.6rem;margin-top:3px;">Enterprise AI v6.0</p>
+    </div>""", unsafe_allow_html=True)
 
-# ==========================================
-# 6. MAIN AREA
-# ==========================================
-st.markdown("<div class='hero-title'>HEXALOY INTELLIGENCE</div>", unsafe_allow_html=True)
+# ─────────────────────────────────────────
+# SIDEBAR TOGGLE — Streamlit native button
+# ─────────────────────────────────────────
+# We use a small col trick to put toggle at top-left
+tog_col, _ = st.columns([1, 11])
+with tog_col:
+    icon = "☰" if not st.session_state.sidebar_open else "✕"
+    # Use JS to actually toggle; Python state just tracks
+    pass  # handled via JS below
+
+# Inject VAPI js + sidebar toggle js
+st.markdown(VAPI_JS, unsafe_allow_html=True)
+
+# Floating sidebar toggle button via HTML/JS
+SIDEBAR_TOGGLE_JS = """
+<script>
+(function(){
+  function getSidebar(){
+    return window.parent.document.querySelector('section[data-testid="stSidebar"]');
+  }
+  function getToggleBtn(){
+    return document.getElementById('hxSbToggle');
+  }
+  var open=true;
+  window.hexToggleSidebar=function(){
+    var sb=getSidebar();
+    var btn=getToggleBtn();
+    if(!sb) return;
+    if(open){
+      sb.style.cssText='transform:translateX(-110%);transition:transform .3s cubic-bezier(.4,0,.2,1);';
+      if(btn){ btn.innerHTML='&#9776;'; btn.style.left='6px'; }
+      open=false;
+    } else {
+      sb.style.cssText='transform:translateX(0);transition:transform .3s cubic-bezier(.4,0,.2,1);';
+      if(btn){ btn.innerHTML='&#10005;'; btn.style.left=''; }
+      open=true;
+    }
+  };
+})();
+</script>
+
+<style>
+#hxSbToggle{
+  position:fixed;
+  top:14px;
+  right:18px;
+  z-index:99999;
+  width:38px;height:38px;
+  border-radius:50%;
+  background:linear-gradient(135deg,#1847F5,#6C2BD9);
+  border:none;cursor:pointer;
+  font-size:16px;color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 16px rgba(24,71,245,.35);
+  transition:all .2s;
+}
+#hxSbToggle:hover{
+  transform:scale(1.1);
+  box-shadow:0 6px 22px rgba(24,71,245,.5);
+}
+@media(prefers-color-scheme:dark){
+  #hxSbToggle{box-shadow:0 4px 16px rgba(79,128,255,.4);}
+}
+</style>
+<button id="hxSbToggle" onclick="hexToggleSidebar()" title="Toggle Sidebar">✕</button>
+"""
+st.markdown(SIDEBAR_TOGGLE_JS, unsafe_allow_html=True)
+
+# ─────────────────────────────────────────
+# HERO HEADER
+# ─────────────────────────────────────────
 st.markdown("""
-    <div class='hero-sub'>Your Professional AI Assistant</div>
-    <div style='text-align:center;margin-bottom:20px;'>
-        <span class='status-badge'><span class='pulse-dot'></span>&nbsp; System Online &middot; Enterprise AI v6.0</span>
-    </div>
+<div class="hero">
+  <h1>HEXALOY INTELLIGENCE</h1>
+  <p>Your Professional AI Assistant</p>
+  <div><span class="pill"><span class="dot"></span>System Online &middot; Enterprise AI v6.0</span></div>
+</div>
 """, unsafe_allow_html=True)
 
-current_messages = st.session_state.sessions[st.session_state.current_chat]
+# ─────────────────────────────────────────
+# WELCOME CARD (only when no messages)
+# ─────────────────────────────────────────
+msgs = st.session_state.sessions[st.session_state.current_chat]
 
-if len(current_messages) == 0:
+if not msgs:
     st.markdown("""
-        <div class='welcome-card'>
-            <div style='font-size:2.4rem;'>🧠</div>
-            <h2>How can I help you today?</h2>
-            <p>Ask me anything — coding, science, business, creative writing, image analysis, and more.<br>Ya seedha baat karo VAPI voice call se!</p>
-            <div class='feature-grid'>
-                <div class='feature-item'><span>💻</span>Code & Debug</div>
-                <div class='feature-item'><span>🔬</span>Science & Research</div>
-                <div class='feature-item'><span>🎨</span>Image Generation</div>
-                <div class='feature-item'><span>🎤</span>Voice Input (Browser)</div>
-                <div class='feature-item'><span>🤖</span>VAPI Voice Agent</div>
-                <div class='feature-item'><span>🌐</span>Any Language</div>
-            </div>
-        </div>
+    <div class="wcard">
+      <div class="big">🧠</div>
+      <h2>How can I help you today?</h2>
+      <p>Ask me anything — coding, science, business, creative writing,<br>image analysis. Ya VAPI se seedha baat karo!</p>
+      <div class="fgrid">
+        <div class="fc"><span class="ico">💻</span>Code & Debug</div>
+        <div class="fc"><span class="ico">🔬</span>Science</div>
+        <div class="fc"><span class="ico">🎨</span>Image Gen</div>
+        <div class="fc"><span class="ico">🎤</span>Voice Input</div>
+        <div class="fc"><span class="ico">🤖</span>VAPI Agent</div>
+        <div class="fc"><span class="ico">🌐</span>Any Language</div>
+      </div>
+    </div>
     """, unsafe_allow_html=True)
 
-# JS + SIDEBAR TOGGLE + VOICE BUTTONS
-st.markdown(js_code, unsafe_allow_html=True)
+# ─────────────────────────────────────────
+# VOICE BUTTONS
+# ─────────────────────────────────────────
+st.markdown(VOICE_HTML, unsafe_allow_html=True)
 
-# ==========================================
-# 7. RENDER MESSAGES
-# ==========================================
-for message in current_messages:
-    avatar_icon = "user.png" if message["role"] == "user" else "logo.png"
-    with st.chat_message(message["role"], avatar=avatar_icon):
-        st.markdown(message["content"])
+# ─────────────────────────────────────────
+# RENDER MESSAGES
+# ─────────────────────────────────────────
+for m in msgs:
+    av = "user.png" if m["role"] == "user" else "logo.png"
+    with st.chat_message(m["role"], avatar=av):
+        st.markdown(m["content"])
 
-# ==========================================
-# 8. CHAT INPUT & RESPONSE
-# ==========================================
+# ─────────────────────────────────────────
+# CHAT INPUT
+# ─────────────────────────────────────────
 if prompt := st.chat_input("Ask Hexaloy anything..."):
 
-    curr_chat = st.session_state.current_chat
-    if curr_chat.startswith("New Session") and len(st.session_state.sessions[curr_chat]) == 0:
-        new_name = prompt[:22] + "..."
-        st.session_state.sessions[new_name] = st.session_state.sessions.pop(curr_chat)
-        st.session_state.current_chat = new_name
+    # rename New Session
+    cur = st.session_state.current_chat
+    if cur.startswith("New Session") and not msgs:
+        nn = prompt[:24].strip() + "…"
+        st.session_state.sessions[nn] = st.session_state.sessions.pop(cur)
+        st.session_state.current_chat  = nn
+        cur = nn
 
-    st.session_state.sessions[st.session_state.current_chat].append({"role": "user", "content": prompt})
-
+    st.session_state.sessions[cur].append({"role":"user","content":prompt})
     with st.chat_message("user", avatar="user.png"):
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar="logo.png"):
 
-        if any(word in prompt.lower() for word in ["draw", "pic", "image", "photo bana", "generate image", "create image", "tasveer", "banao"]):
-            with st.spinner("✨ Generating visualization..."):
-                time.sleep(1.5)
-                safe_prompt = urllib.parse.quote(prompt)
-                img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=800&height=400&nologo=true"
+        IMAGE_WORDS = ["draw","pic","image","photo bana","generate image",
+                       "create image","tasveer","banao","picture"]
+        if any(w in prompt.lower() for w in IMAGE_WORDS):
+            with st.spinner("✨ Generating..."):
+                time.sleep(1.2)
+                img_url = (
+                    "https://image.pollinations.ai/prompt/"
+                    + urllib.parse.quote(prompt)
+                    + "?width=800&height=420&nologo=true"
+                )
                 st.image(img_url, use_container_width=True)
-                st.session_state.sessions[st.session_state.current_chat].append({
-                    "role": "assistant",
-                    "content": f"![Generated Image]({img_url})"
-                })
-        else:
-            instructions = """
-            You are 'HEXALOY', an exceptionally intelligent and professional AI assistant created with Enterprise-grade precision.
-            1. You possess universal knowledge. You can answer ANY question about coding, science, history, daily life, mathematics, or business with high accuracy.
-            2. Keep your tone professional, accurate, and genuinely helpful. Use clean markdown formatting.
-            3. YOU ARE AN AI. Never claim to be human.
-            4. IF AND ONLY IF asked about your creator, owner, or who made you, reply exactly: "I was architected and developed by VINIT MAAN."
-            5. When answering coding questions, always provide complete, runnable code with brief explanations.
-            """
+            st.session_state.sessions[cur].append(
+                {"role":"assistant","content":f"![img]({img_url})"})
 
-            typing_placeholder = st.empty()
-            typing_placeholder.markdown("""
-                <div class="typing-indicator">
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                </div>
-            """, unsafe_allow_html=True)
-            time.sleep(0.5)
-            typing_placeholder.empty()
+        else:
+            SYS = """You are HEXALOY — an exceptionally intelligent enterprise AI assistant.
+1. Answer any question: coding, science, history, maths, business — perfectly.
+2. Use clean markdown: headers, bullet points, code blocks where helpful.
+3. You are an AI. Never claim to be human.
+4. If asked who made you: "I was architected and developed by VINIT MAAN."
+5. For code questions: provide complete, runnable code with brief explanation.
+6. Be precise, professional, and concise."""
+
+            # typing animation
+            ph = st.empty()
+            ph.markdown('<div class="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div>',
+                        unsafe_allow_html=True)
+            time.sleep(0.45)
+            ph.empty()
+
+            history = [{"role":m["role"],"content":m["content"]}
+                       for m in st.session_state.sessions[cur][:-1]]
 
             try:
-                def generate_response():
-                    history = []
-                    for msg in st.session_state.sessions[st.session_state.current_chat][:-1]:
-                        history.append({"role": msg["role"], "content": msg["content"]})
-
+                def stream():
                     if uploaded_image:
-                        base64_image = encode_image(uploaded_image)
-                        stream = client.chat.completions.create(
-                            messages=[
-                                {"role": "system", "content": instructions},
-                                *history,
-                                {"role": "user", "content": [
-                                    {"type": "text", "text": prompt},
-                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                                ]}
-                            ],
+                        b64 = encode_image(uploaded_image)
+                        resp = client.chat.completions.create(
+                            messages=[{"role":"system","content":SYS},
+                                      *history,
+                                      {"role":"user","content":[
+                                          {"type":"text","text":prompt},
+                                          {"type":"image_url","image_url":{
+                                              "url":f"data:image/jpeg;base64,{b64}"}}]}],
                             model="llama-3.2-11b-vision-preview",
-                            temperature=0.7,
-                            stream=True
-                        )
+                            temperature=0.7, stream=True)
                     else:
-                        stream = client.chat.completions.create(
-                            messages=[
-                                {"role": "system", "content": instructions},
-                                *history,
-                                {"role": "user", "content": prompt}
-                            ],
+                        resp = client.chat.completions.create(
+                            messages=[{"role":"system","content":SYS},
+                                      *history,
+                                      {"role":"user","content":prompt}],
                             model="llama-3.3-70b-versatile",
-                            temperature=0.7,
-                            stream=True
-                        )
+                            temperature=0.7, stream=True)
+                    for chunk in resp:
+                        c = chunk.choices[0].delta.content
+                        if c: yield c
 
-                    for chunk in stream:
-                        if chunk.choices[0].delta.content is not None:
-                            yield chunk.choices[0].delta.content
-
-                response_text = st.write_stream(generate_response())
-                st.session_state.sessions[st.session_state.current_chat].append({
-                    "role": "assistant",
-                    "content": response_text
-                })
+                out = st.write_stream(stream())
+                st.session_state.sessions[cur].append({"role":"assistant","content":out})
 
             except Exception as e:
-                st.error(f"⚠️ System Fault: {str(e)}")
+                st.error(f"⚠️ System Fault: {e}")
