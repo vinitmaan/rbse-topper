@@ -262,3 +262,53 @@ if prompt := st.chat_input("Ask Hexaloy anything..."):
                 
             except Exception as e:
                 st.error(f"System Fault: {str(e)}")
+# ==========================================
+# 5. VAPI VOICE WIDGET (BOTTOM-RIGHT RED ICON)
+# ==========================================
+import html
+
+if "VAPI_PUBLIC_KEY" in st.secrets and "VAPI_ASSISTANT_ID" in st.secrets:
+    vapi_public_key = st.secrets["VAPI_PUBLIC_KEY"]
+    vapi_assistant_id = st.secrets["VAPI_ASSISTANT_ID"]
+
+    # 1. Asli Vapi Widget ka HTML
+    widget_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>body {{ margin: 0; background-color: transparent; overflow: hidden; }}</style>
+    </head>
+    <body>
+        <script>
+            const script = document.createElement("script");
+            script.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-widget@latest/dist/vapi-widget.js";
+            script.defer = true;
+            document.head.appendChild(script);
+
+            script.onload = () => {{
+                window.vapiSDK.run({{
+                    apiKey: "{vapi_public_key}",
+                    assistantId: "{vapi_assistant_id}",
+                    config: {{ 
+                        position: "bottom-right", 
+                        color: "#DC2626" // Red color jo tujhe chahiye tha
+                    }}
+                }});
+            }};
+        </script>
+    </body>
+    </html>
+    """
+    
+    # 2. HTML ko encode karke Streamlit iframe mein daalna (taaki Mic access allow ho sake)
+    escaped_widget = html.escape(widget_html)
+    
+    # allow="microphone" is the magic key here!
+    iframe_code = f"""
+    <iframe 
+        srcdoc="{escaped_widget}" 
+        style="position: fixed; bottom: 20px; right: 20px; width: 370px; height: 500px; border: none; z-index: 9999999; background: transparent;"
+        allow="microphone">
+    </iframe>
+    """
+    st.markdown(iframe_code, unsafe_allow_html=True)
