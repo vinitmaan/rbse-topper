@@ -1,5 +1,5 @@
 import streamlit as st
-import streamlit.components.v1 as components  # <-- YE NAYI LINE ADD KARO
+import streamlit.components.v1 as components
 import urllib.parse
 import time
 import base64
@@ -48,7 +48,7 @@ def encode_image(uploaded_file):
     return base64.b64encode(uploaded_file.getvalue()).decode('utf-8')
 
 # ==========================================
-# 3. SIDEBAR WITH CUSTOM HEXALOY LOGO
+# 3. SIDEBAR WITH CUSTOM HEXALOY LOGO & VAPI WIDGET
 # ==========================================
 if "sessions" not in st.session_state:
     st.session_state.sessions = {"New Session": []}
@@ -95,6 +95,41 @@ with st.sidebar:
             <p style="font-size: 0.6rem; margin-top: 5px;">Enterprise AI v6.0</p>
         </div>
     """, unsafe_allow_html=True)
+
+    # --- AVIKA VOICE AI WIDGET ---
+    st.markdown("---")
+    st.markdown("<p style='text-align: center; color: #1A56A8; font-weight: 800; font-size: 1.1rem; margin-bottom: 5px;'>📞 TALK TO AVIKA</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #64748B; font-size: 0.75rem; margin-top: -10px;'>Hexaloy Voice Assistant</p>", unsafe_allow_html=True)
+    
+    if "VAPI_PUBLIC_KEY" in st.secrets and "VAPI_ASSISTANT_ID" in st.secrets:
+        vapi_public_key = st.secrets["VAPI_PUBLIC_KEY"]
+        vapi_assistant_id = st.secrets["VAPI_ASSISTANT_ID"]
+
+        vapi_widget_code = f"""
+        <script>
+          var vapiInstance = null;
+          const script = document.createElement('script');
+          script.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-widget@latest/dist/vapi-widget.js";
+          script.defer = true;
+          document.head.appendChild(script);
+
+          script.onload = () => {{
+            vapiInstance = window.vapiSDK.run({{
+              apiKey: "{vapi_public_key}", 
+              assistantId: "{vapi_assistant_id}",
+              config: {{
+                position: "bottom-left", // Left side for the sidebar
+                title: "Call Avika",
+                color: "#1A56A8", 
+              }},
+            }});
+          }};
+        </script>
+        """
+        # Height di hai taaki widget chhup na jaye
+        components.html(vapi_widget_code, height=200)
+    else:
+        st.error("⚠️ Vapi Secrets missing in App Settings!")
 
 # ==========================================
 # 4. MAIN CHAT & STREAMING LOGIC
@@ -173,65 +208,3 @@ if prompt := st.chat_input("Ask Hexaloy anything..."):
                 
             except Exception as e:
                 st.error(f"System Fault: {str(e)}")
-
-# ==========================================
-# 5. VAPI VOICE WIDGET (AVIKA)
-# ==========================================
-vapi_widget_code = """
-<script>
-  var vapiInstance = null;
-  const script = document.createElement('script');
-  script.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-widget@latest/dist/vapi-widget.js";
-  script.defer = true;
-  document.head.appendChild(script);
-
-  script.onload = () => {
-    vapiInstance = window.vapiSDK.run({
-      apiKey: "YAHAN_APNI_VAPI_PUBLIC_KEY_DAALO", 
-      assistantId: "YAHAN_AVIKA_KI_ASSISTANT_ID_DAALO", 
-      config: {
-        position: "bottom-right",
-        title: "Talk to Avika",
-        color: "#1A56A8", // Tumhari website se match karta hua blue color
-      },
-    });
-  };
-</script>
-"""
-components.html(vapi_widget_code, height=0)
-
-# ==========================================
-# 5. VAPI VOICE WIDGET (AVIKA)
-# ==========================================
-import streamlit.components.v1 as components
-
-# Secrets se Vapi ki details nikal rahe hain
-vapi_public_key = st.secrets["VAPI_PUBLIC_KEY"]
-vapi_assistant_id = st.secrets["VAPI_ASSISTANT_ID"]
-
-vapi_widget_code = f"""
-<script>
-  var vapiInstance = null;
-  const script = document.createElement('script');
-  script.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-widget@latest/dist/vapi-widget.js";
-  script.defer = true;
-  document.head.appendChild(script);
-
-  script.onload = () => {{
-    vapiInstance = window.vapiSDK.run({{
-      apiKey: "{vapi_public_key}", 
-      assistantId: "{vapi_assistant_id}",
-      config: {{
-        position: "bottom-right",
-        title: "Talk to Avika",
-        color: "#1A56A8", 
-      }},
-    }});
-  }};
-</script>
-"""
-components.html(vapi_widget_code, height=0)
-
-
-
-
