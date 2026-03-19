@@ -1,8 +1,8 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import urllib.parse
 import time
 import base64
+import html
 from groq import Groq
 
 # ==========================================
@@ -96,6 +96,96 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
 
+    # ==========================================
+    # AVIKA VOICE AI - SIDEBAR BUTTON (WITH MIC ACCESS)
+    # ==========================================
+    st.markdown("---")
+    st.markdown("<p style='text-align: center; color: #1A56A8; font-weight: 800; font-size: 1.1rem; margin-bottom: 5px;'>📞 TALK TO AVIKA</p>", unsafe_allow_html=True)
+    
+    if "VAPI_PUBLIC_KEY" in st.secrets and "VAPI_ASSISTANT_ID" in st.secrets:
+        vapi_public_key = st.secrets["VAPI_PUBLIC_KEY"]
+        vapi_assistant_id = st.secrets["VAPI_ASSISTANT_ID"]
+
+        button_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Inter', sans-serif; background: transparent; }}
+                button {{
+                    background-color: #1A56A8; color: white; border: none; padding: 12px 20px;
+                    border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer;
+                    width: 90%; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.3s;
+                    display: flex; justify-content: center; align-items: center; gap: 8px;
+                }}
+                button:hover {{ background-color: #134282; }}
+                #status {{ font-size: 0.75rem; color: #64748B; margin-top: 8px; text-align: center; font-weight: 600; }}
+            </style>
+        </head>
+        <body>
+            <button id="vapi-btn">🎙️ Start Call</button>
+            <div id="status">Hexaloy Voice Assistant</div>
+
+            <script>
+                const script = document.createElement('script');
+                script.src = "https://cdn.jsdelivr.net/npm/@vapi-ai/web@latest/dist/vapi.bundle.js";
+                script.defer = true;
+                document.head.appendChild(script);
+
+                script.onload = () => {{
+                    const vapi = new window.Vapi("{vapi_public_key}");
+                    const btn = document.getElementById("vapi-btn");
+                    const status = document.getElementById("status");
+                    let isActive = false;
+
+                    btn.addEventListener("click", () => {{
+                        if (!isActive) {{
+                            vapi.start("{vapi_assistant_id}");
+                            btn.innerHTML = "🛑 End Call";
+                            btn.style.backgroundColor = "#DC2626";
+                            status.innerHTML = "Connecting to Avika...";
+                            isActive = true;
+                        }} else {{
+                            vapi.stop();
+                            btn.innerHTML = "🎙️ Start Call";
+                            btn.style.backgroundColor = "#1A56A8";
+                            status.innerHTML = "Call Ended";
+                            isActive = false;
+                        }}
+                    }});
+
+                    vapi.on('call-start', () => {{ 
+                        status.innerHTML = "🟢 Avika is listening..."; 
+                        status.style.color = "#10B981"; 
+                    }});
+                    
+                    vapi.on('call-end', () => {{
+                        btn.innerHTML = "🎙️ Start Call";
+                        btn.style.backgroundColor = "#1A56A8";
+                        status.innerHTML = "Hexaloy Voice Assistant";
+                        status.style.color = "#64748B";
+                        isActive = false;
+                    }});
+                }};
+            </script>
+        </body>
+        </html>
+        """
+        
+        # HTML encode kiya taaki string toot na jaye
+        escaped_html = html.escape(button_html)
+        
+        # Iframe inject kiya with allow="microphone"
+        iframe_code = f"""
+        <iframe srcdoc="{escaped_html}" 
+                style="width: 100%; height: 110px; border: none; overflow: hidden; background: transparent;" 
+                allow="microphone">
+        </iframe>
+        """
+        st.markdown(iframe_code, unsafe_allow_html=True)
+    else:
+        st.error("⚠️ Vapi Secrets missing in App Settings!")
+
 # ==========================================
 # 4. MAIN CHAT & STREAMING LOGIC
 # ==========================================
@@ -173,42 +263,3 @@ if prompt := st.chat_input("Ask Hexaloy anything..."):
                 
             except Exception as e:
                 st.error(f"System Fault: {str(e)}")
-
-# ==========================================
-# 5. VAPI VOICE WIDGET (BULLETPROOF PARENT INJECTION)
-# ==========================================
-if "VAPI_PUBLIC_KEY" in st.secrets and "VAPI_ASSISTANT_ID" in st.secrets:
-    vapi_public_key = st.secrets["VAPI_PUBLIC_KEY"]
-    vapi_assistant_id = st.secrets["VAPI_ASSISTANT_ID"]
-
-    inject_vapi_script = f"""
-    <script>
-        // Streamlit ke iframe se bahar nikal kar main document (parent) mein jao
-        const parentDoc = window.parent.document;
-        
-        // Agar pehle se script nahi hai, tabhi inject karo
-        if (!parentDoc.getElementById("vapi-custom-script")) {{
-            const script = parentDoc.createElement("script");
-            script.id = "vapi-custom-script";
-            script.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-widget@latest/dist/vapi-widget.js";
-            script.defer = true;
-            
-            script.onload = () => {{
-                window.parent.vapiSDK.run({{
-                    apiKey: "{vapi_public_key}",
-                    assistantId: "{vapi_assistant_id}",
-                    config: {{
-                        position: "bottom-right",
-                        color: "#DC2626" // Tera red color
-                    }}
-                }});
-            }};
-            // Isko direct parent head mein daal diya, mic block ka chance hi nahi bacha
-            parentDoc.head.appendChild(script);
-        }}
-    </script>
-    """
-    # Iframe ka size 0x0 diya hai taaki UI kharab na ho, kyunki asli button parent pe banega
-    components.html(inject_vapi_script, height=0, width=0)
-else:
-    st.error("⚠️ Vapi Secrets missing in App Settings!")
